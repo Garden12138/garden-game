@@ -9,6 +9,9 @@ Garden Game 是个人独立游戏创作与实验平台，用于记录玩法设�
 | 游戏 | 类型 | 状态 |
 | --- | --- | --- |
 | [Pelican Rumble —《喙不住了！擂台》](games/pelican-rumble/README.md) | 双人策略卡牌与擂台格斗 | Design / Pre-production |
+| [峡谷身份战](games/rift-identity/README.md) | 身份推理卡牌，支持单机与局域网 | 可玩 |
+| [峡谷格斗](games/rift-fight/README.md) | 四键 2D 格斗，支持人机与本地双人 | 可玩 |
+| [峡谷决斗](games/rift-duel/README.md) | 预组卡牌决斗，单人挑战 AI | 可玩 |
 
 Pelican Rumble 目前处于 V0.4 核心玩法设计阶段，首个验证平台为 PC 浏览器，尚未进入程序开发。
 
