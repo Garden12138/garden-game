@@ -1,0 +1,36 @@
+.plc-scene { display: block; width: 100%; height: auto; overflow: hidden; pointer-events: none; }
+.plc-scale { font: 750 15px/1 "Courier New", "PingFang SC", monospace; letter-spacing: 1px; }
+.plc-scale .plc-occupied { font-weight: 900; }
+.plc-breathe { transform-origin: 0 0; animation: plc-breathe 2250ms ease-in-out infinite; }
+@keyframes plc-breathe { 50% { transform: translateY(-.7px) scale(.997,1.012); } }
+.plc-playing .plc-breathe { animation: none; }
+.plc-shield { opacity: 0; transform-origin: -24px -77px; }
+[data-action="guard"] .plc-shield { animation: plc-guard 1600ms ease-in-out both; }
+.plc-salute .plc-shield { opacity: 1; transform: rotate(-36deg); }
+.plc-curtain-call .plc-shield { animation: plc-salute 650ms ease-out both; }
+@keyframes plc-salute {
+  from { opacity: 0; transform: rotate(15deg); }
+  to { opacity: 1; transform: rotate(-36deg); }
+}
+@keyframes plc-guard {
+  0%, 16%, 100% { opacity: 0; transform: rotate(44deg) scale(.87); }
+  32%, 78% { opacity: 1; transform: rotate(-8deg) scale(1.13); }
+}
+.plc-head { transform-origin: -8px -103px; }
+.plc-blue-head { transform-origin: -10px -102px; }
+[data-action="jab"] .plc-head { animation: plc-jab-red 1370ms ease-out both; }
+[data-action="jab"] .plc-blue-head { animation: plc-jab-blue 1370ms ease-out both; }
+@keyframes plc-jab-red { 0%, 36%, 100% { transform: none; } 65% { transform: translate(10px,2px) rotate(3deg); } }
+@keyframes plc-jab-blue { 0%, 36%, 100% { transform: none; } 65% { transform: translate(-4px,2px) rotate(-3deg); } }
+.plc-wing { transform-origin: -26px -93px; }
+.plc-comb .plc-wing { animation: plc-comb 820ms ease-in-out both; }
+@keyframes plc-comb { 0%, 100% { transform: none; } 50%, 62% { transform: rotate(118deg); } }
+[data-action="throw"] .plc-wing { animation: plc-scoop 1500ms ease-in-out; }
+@keyframes plc-scoop { 34%, 100% { transform: none; } 63% { transform: rotate(-37deg); } }
+[data-balance="2"] .plc-breathe { animation: plc-wobble 1900ms ease-in-out infinite; }
+.plc-playing [data-balance="2"] .plc-breathe { animation: none; }
+@keyframes plc-wobble { 24% { transform: rotate(-1.25deg); } 73% { transform: rotate(1.4deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .plc-scene *, .plc-scene *::after { animation: none !important; }
+  [data-action="guard"] .plc-shield { opacity: 1; }
+}

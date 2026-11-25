@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#192e2b">
+  <title>喙不住了！擂台 · Pelican Rumble</title>
+  <link rel="icon" href="./assets/league.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles/game.css">
+  <link rel="stylesheet" href="./styles/arena.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="bar-inner">
+      <a href="#match" class="brand" aria-label="Pelican Rumble 对战中心">
+        <img src="./assets/league.svg" width="52" height="44" alt="">
+        <span>PELICAN <b>RUMBLE</b></span>
+      </a>
+      <nav aria-label="主导航">
+        <button type="button" data-nav="match" aria-current="page">对战中心</button>
+        <button type="button" data-nav="guide">场边速查</button>
+        <button type="button" data-nav="fighters">选手档案</button>
+      </nav>
+      <button class="sound" id="sound" type="button" aria-pressed="false" title="开启音效"></button>
+    </div>
+  </header>
+  <main id="match">
+    <div class="match-title">
+      <div>
+        <p class="eyebrow"><span class="live-dot"></span>擂台转播 <span class="slug">/ MATCH CENTER</span></p>
+        <h1>喙不住了！<em>擂台</em></h1>
+      </div>
+      <div class="mode-switch" role="group" aria-label="比赛模式">
+        <button type="button" data-mode="lesson"><i data-icon="cap"></i>教学练习</button>
+        <button type="button" data-mode="cpu"><i data-icon="cpu"></i>人机对战</button>
+        <button type="button" data-mode="local"><i data-icon="users"></i>本地双人</button>
+      </div>
+    </div>
+    <section class="broadcast" aria-label="擂台直播">
+      <div class="scoreboard">
+        <div class="fighter-hud red" data-side="0"></div>
+        <div class="round-box">
+          <span class="round-label">ROUND</span><div><strong id="round">01</strong><span> / 12</span></div>
+        </div>
+        <div class="fighter-hud blue" data-side="1"></div>
+      </div>
+      <div class="stage-wrap">
+        <div id="arena" role="img"></div>
+        <span class="camera-label"><b></b> LIVE <span>|</span> CAM 01</span>
+        <div class="reveal-cards" id="reveal-cards" hidden></div>
+        <div class="stage-message" id="stage-message" hidden></div>
+      </div>
+      <div class="commentary"><span class="comment-label"><i data-icon="mic"></i>转播席</span><span id="comment-text" aria-live="polite"></span><button type="button" id="history"><i data-icon="history"></i><span>回合记录</span></button></div>
+    </section>
+    <section class="hand" aria-labelledby="hand-title">
+      <div class="hand-header">
+        <div class="hand-heading"><i data-icon="cards"></i><h2 id="hand-title">你的手牌</h2><span id="hand-side" class="side-tag"></span></div>
+        <div class="hand-status" id="hand-status"></div>
+      </div>
+      <div class="hand-grid" id="cards" role="group" aria-label="六张动作卡"></div>
+      <div class="command-bar">
+        <div id="tactics" class="tactics"></div>
+        <div id="actions" class="actions"></div>
+      </div>
+    </section>
+  </main>
+  <dialog id="details" aria-labelledby="dialog-title">
+    <div class="dialog-head"><h2 id="dialog-title"></h2><button type="button" id="close-dialog" aria-label="关闭"><i data-icon="close"></i></button></div>
+    <div id="dialog-body" class="dialog-body"></div>
+  </dialog>
+  <script type="module" src="./src/app.mjs"></script>
+</body>
+</html>
