@@ -1,7 +1,7 @@
 import { getCardDef } from "../data/cards";
 import { declareAttack } from "./battle";
 import { openRespondAfterAttack, passResponse, pushChain } from "./chain";
-import { cloneState, findOnField, log, other, removeFromHand } from "./helpers";
+import { cloneState, findOnField, log, other, removeFromHand, sendToGy, sideName } from "./helpers";
 import { applySummon } from "./summon";
 import { applySynchro } from "./synchro";
 import { applyXyz } from "./xyz";
@@ -35,7 +35,7 @@ function endTurn(state: DuelState): void {
     return;
   }
   drawer.hand.push(drawn);
-  log(state, `${next === 0 ? "先攻" : "后攻"} 抽卡`);
+  log(state, `${sideName(next)}抽卡`);
   state.phase = "main1";
   state.prompt = { kind: "free", actor: next };
 }
@@ -92,7 +92,7 @@ export function reduce(state: DuelState, action: Action): DuelState {
       if (card) {
         card.face = "down";
         player.spells[action.zone] = card;
-        log(next, `盖放 ${getCardDef(card.defId).name}`);
+        log(next, `${sideName(player.id)}盖放了 1 张魔法或陷阱`);
       }
       break;
     }
@@ -120,6 +120,15 @@ export function reduce(state: DuelState, action: Action): DuelState {
       break;
   }
 
+  for (const player of next.players) {
+    for (const [index, card] of player.spells.entries()) {
+      if (!card || card.face === "down" || getCardDef(card.defId).spellType !== "equip") continue;
+      if (next.chain.some((link) => link.uid === card.uid)) continue;
+      if (card.equippedTo && findOnField(next, card.equippedTo)?.zone === "monster") continue;
+      player.spells[index] = null;
+      sendToGy(player, card);
+    }
+  }
   applyWinCheck(next);
   return next;
 }

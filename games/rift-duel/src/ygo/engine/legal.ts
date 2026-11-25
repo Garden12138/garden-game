@@ -116,6 +116,7 @@ function activateTargets(state: DuelState, player: PlayerState, card: CardInstan
     case "addFromGy":
       return player.gy.filter((c) => getCardDef(c.defId).kind === "monster").map((c) => [c.uid]);
     case "specialSummonHand":
+      if (emptyZones(player.monsters).length === 0) return [];
       return player.hand
         .filter((c) => {
           const d = getCardDef(c.defId);
@@ -148,6 +149,8 @@ function canActivateNow(state: DuelState, player: PlayerState, card: CardInstanc
     return state.prompt.kind === "respond" || (state.prompt.kind === "free" && (isMainPhase(state) || state.phase === "battle"));
   }
   if (def.kind === "spell") {
+    if (!fromHand && card.face === "up") return false;
+    if (fromHand && def.spellType === "equip" && emptyZones(player.spells).length === 0) return false;
     if (def.speed === 1) {
       return (
         state.prompt.kind === "free" &&

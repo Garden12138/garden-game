@@ -1,4 +1,5 @@
 import { getDeck } from "../data/decks";
+import { sideName } from "./helpers";
 import { shuffleInPlace } from "./rng";
 import type { CardInstance, Controller, DuelState, PlayerId, PlayerState } from "./types";
 
@@ -57,10 +58,12 @@ export interface CreateDuelConfig {
   p1DeckId: string;
   p0Controller?: Controller;
   p1Controller?: Controller;
+  firstPlayer?: PlayerId;
   shuffle?: boolean;
 }
 
 export function createDuel(config: CreateDuelConfig): DuelState {
+  const first = config.firstPlayer ?? 0;
   const p0 = makePlayer(0, config.p0DeckId, config.p0Controller ?? "human", 1);
   const p1 = makePlayer(1, config.p1DeckId, config.p1Controller ?? "ai", p0.nextUid);
   let rng = config.seed >>> 0;
@@ -73,17 +76,17 @@ export function createDuel(config: CreateDuelConfig): DuelState {
     seed: config.seed,
     rng,
     turn: 1,
-    turnPlayer: 0,
+    turnPlayer: first,
     phase: "main1",
     battleStep: null,
     attack: null,
     chain: [],
     respondPassed: 0,
-    prompt: { kind: "free", actor: 0 },
+    prompt: { kind: "free", actor: first },
     players: [p0.player, p1.player],
     winner: null,
     winReason: null,
-    log: ["峡谷决斗开始。先攻跳过抽卡。"],
+    log: [`峡谷决斗开始。${sideName(first)}先攻，跳过抽卡。`],
     normalSummonUsed: false,
     uidSeq: p1.nextUid,
   };

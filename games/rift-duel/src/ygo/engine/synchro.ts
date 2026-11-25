@@ -1,5 +1,5 @@
 import { getCardDef } from "../data/cards";
-import { detachFromZone, emptyZones, isExtraMonster, log, occupiedMonsters, sendToGy } from "./helpers";
+import { detachFromZone, emptyZones, isExtraMonster, log, occupiedMonsters, sendToGy, sideName } from "./helpers";
 import { placeMonster } from "./summon";
 import type { Action, CardInstance, DuelState, PlayerState } from "./types";
 
@@ -81,5 +81,5 @@ export function applySynchro(
   }
   player.extra = player.extra.filter((card) => card.uid !== extra.uid);
   placeMonster(state, player.id, extra, action.zone, "atk", "up");
-  log(state, `同调召唤 ${getCardDef(extra.defId).name}`);
+  log(state, `${sideName(player.id)}同调召唤 ${getCardDef(extra.defId).name}`);
 }

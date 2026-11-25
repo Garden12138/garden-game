@@ -50,5 +50,20 @@ describe("zhonya", () => {
     if (zhonya) state = act(state, zhonya);
     state = passBoth(state);
     expect(state.players[0].lp).toBe(lp);
+    expect(legalActions(state).some((action) => action.type === "attack")).toBe(false);
   });
+});
+
+it("does not reactivate a resolved equipment and drops it when its monster leaves", () => {
+  let state = moveToHand(duel(), 0, "infinityEdge");
+  state = act(state, must(state, (a) => a.type === "normalSummon"));
+  const edge = state.players[0].hand.find((c) => c.defId === "infinityEdge")!;
+  state = passBoth(act(state, must(state, (a) => a.type === "activate" && a.uid === edge.uid)));
+  expect(state.players[0].spells.some((c) => c?.uid === edge.uid && c.equippedTo)).toBe(true);
+  expect(legalActions(state).some((a) => a.type === "activate" && a.uid === edge.uid)).toBe(false);
+  const target = state.players[0].monsters.find((c) => c !== null)!;
+  const flash = state.players[0].hand[0]!;
+  flash.defId = "flash";
+  state = passBoth(act(state, must(state, (a) => a.type === "activate" && a.uid === flash.uid && a.targets[0] === target.uid)));
+  expect(state.players[0].gy.some((c) => c.uid === edge.uid)).toBe(true);
 });

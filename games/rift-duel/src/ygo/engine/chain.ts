@@ -1,6 +1,6 @@
 import { getCardDef } from "../data/cards";
 import { applyResolve, consumeActivatedCard } from "./effects";
-import { log } from "./helpers";
+import { log, sideName } from "./helpers";
 import { resolveBattle } from "./battle";
 import { detachOverlays } from "./xyz";
 import type { Action, DuelState } from "./types";
@@ -25,7 +25,7 @@ export function pushChain(state: DuelState, action: Extract<Action, { type: "act
   consumeActivatedCard(state, action.uid);
   state.respondPassed = 0;
   state.prompt = { kind: "respond", actor: card.owner === 0 ? 1 : 0 };
-  log(state, `发动 ${def.name}`);
+  log(state, `${sideName(card.owner)}发动 ${def.name}`);
 }
 
 function findCard(state: DuelState, uid: string) {

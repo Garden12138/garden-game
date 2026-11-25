@@ -1,10 +1,10 @@
 import { getCardDef } from "../data/cards";
-import { computedAtk, computedDef, emptyZones, findOnField, log, occupiedMonsters, other, sendToGy } from "./helpers";
+import { computedAtk, computedDef, emptyZones, findOnField, log, occupiedMonsters, other, sendToGy, sideName } from "./helpers";
 import type { CardInstance, DuelState, PlayerState } from "./types";
 
 export function destroyMonster(state: DuelState, card: CardInstance): void {
   if (card.protectedUntilEnd) {
-    log(state, `${getCardDef(card.defId).name} 被屏障保护`);
+    log(state, `${card.face === "up" ? getCardDef(card.defId).name : "盖放的怪兽"} 被屏障保护`);
     return;
   }
   const located = findOnField(state, card.uid);
@@ -19,7 +19,7 @@ export function destroyMonster(state: DuelState, card: CardInstance): void {
       located.player.deck = located.player.deck.filter((item) => item.uid !== mushroom.uid);
       mushroom.face = "down";
       located.player.spells[zone] = mushroom;
-      log(state, "迅捷斥候：盖放毒蘑菇");
+      log(state, "迅捷斥候从卡组盖放了 1 张陷阱");
     }
   }
 }
@@ -36,7 +36,6 @@ export function resolveBattle(state: DuelState): void {
     return;
   }
   const attacker = attackerLoc.card;
-  attacker.attackedThisTurn = true;
   const atk = computedAtk(state, attacker);
   if (attack.targetUid === "direct") {
     const foe = state.players[other(attacker.owner)];
@@ -57,7 +56,7 @@ export function resolveBattle(state: DuelState): void {
     if (atk > defAtk) {
       destroyMonster(state, defender);
       defenderLoc.player.lp -= atk - defAtk;
-      maybeExtraAttack(state, attacker);
+      if (!defender.protectedUntilEnd) maybeExtraAttack(state, attacker);
     } else if (atk < defAtk) {
       destroyMonster(state, attacker);
       attackerLoc.player.lp -= defAtk - atk;
@@ -70,7 +69,7 @@ export function resolveBattle(state: DuelState): void {
     const def = computedDef(defender);
     if (atk > def) {
       destroyMonster(state, defender);
-      maybeExtraAttack(state, attacker);
+      if (!defender.protectedUntilEnd) maybeExtraAttack(state, attacker);
     } else if (atk < def) {
       attackerLoc.player.lp -= def - atk;
     }
@@ -112,8 +111,9 @@ export function declareAttack(state: DuelState, attackerUid: string, targetUid: 
   } else if (!foes.some((m) => m.uid === targetUid)) {
     return false;
   }
+  card.attackedThisTurn = true;
   state.attack = { attackerUid, targetUid, negated: false };
   state.battleStep = "battle";
-  log(state, `${getCardDef(card.defId).name} 攻击宣言`);
+  log(state, `${sideName(card.owner)}的${getCardDef(card.defId).name}宣言攻击`);
   return true;
 }

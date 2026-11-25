@@ -44,58 +44,8 @@ button:disabled {
   opacity: 0.4;
 }
 
-.ygo-lobby,
-.ygo-duel,
-.ygo-result {
-  min-height: 100vh;
-  background: #0b1220;
-  color: #e8eef8;
-}
-
-.ygo-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-}
-
-.ygo-header small {
-  display: block;
-  letter-spacing: 0.16em;
-  color: #8aa0b8;
-  font-size: 10px;
-}
-
-.ygo-lead,
-.ygo-log,
-.ygo-piles,
-.ygo-hand-backs {
-  margin: 0 24px 12px;
-  color: #90a4b8;
-  font-size: 13px;
-}
-
-.ygo-extra {
-  display: inline;
-  padding: 0;
-  border: none;
-  background: none;
-  color: #7eb6e8;
-  cursor: pointer;
-}
-
-.ygo-decks {
-  display: grid;
-  gap: 10px;
-  max-width: 520px;
-  margin: 0 24px 16px;
-}
-
 .ygo-decks button,
-.ygo-start,
-.ygo-prompt button,
-.ygo-result button,
-.ygo-header button {
+.ygo-result button {
   border: 1px solid #35506c;
   background: #152436;
   color: inherit;
@@ -103,101 +53,290 @@ button:disabled {
   border-radius: 8px;
 }
 
-.ygo-decks button.is-on,
-.ygo-start {
-  background: #1d4f7a;
-}
-
-.ygo-start {
-  margin: 0 24px 24px;
-}
-
-.ygo-field {
-  display: grid;
-  gap: 8px;
-  padding: 8px 16px;
-}
-
-.ygo-row {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.ygo-zone,
-.ygo-card {
-  min-height: 88px;
-  border: 1px solid #2a415c;
-  border-radius: 8px;
-}
-
-.ygo-card {
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-  background: #101b2c;
-  color: inherit;
-  text-align: left;
-  padding: 6px;
-  display: grid;
-  align-content: end;
-}
-
-.ygo-card__art {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: top;
-  opacity: 0.55;
-}
-
-.ygo-card strong,
-.ygo-card small,
-.ygo-card__back {
-  position: relative;
-  z-index: 1;
-}
-
-.ygo-card.is-hidden,
-.ygo-card.is-set {
-  background: #1a2740;
-}
-
-.ygo-hand {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 8px 16px 20px;
-}
-
-.ygo-hand .ygo-card {
-  min-width: 110px;
-  min-height: 150px;
-}
-
-.ygo-prompt {
-  padding: 0 16px 8px;
-}
-
-.ygo-prompt__row,
 .ygo-result__actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.ygo-chain {
+.ygo-lobby,
+.ygo-result {
+  min-height: 100vh;
+  --line: #30435a;
+  --muted: #adbdcd;
+  --accent: #9fe3d7;
+  background: radial-gradient(ellipse at 15% 0%, #173247, transparent 56%), #0b1220;
+}
+
+.ygo-lobby {
+  padding: clamp(20px, 4vw, 52px) max(16px, calc((100% - 1120px) / 2)) clamp(32px, 5vw, 72px);
+}
+
+.ygo-lobby__masthead {
   display: flex;
-  gap: 8px;
-  list-style: none;
-  padding: 0 16px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ygo-lobby__masthead h1,
+.ygo-result h1 {
+  font-family: "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.ygo-lobby__masthead h1 {
+  font-size: clamp(32px, 5vw, 54px);
+  letter-spacing: 0.05em;
+}
+
+.ygo-lobby__masthead span {
+  font-size: 11px;
+  letter-spacing: 0.23em;
+  color: var(--accent);
+}
+
+.ygo-lobby__free-link {
+  display: none;
+  margin-left: auto;
+  padding: 8px 2px;
+  color: var(--accent);
+  font-size: 14px;
+  text-underline-offset: 4px;
+}
+
+.ygo-lobby__section {
+  margin-top: clamp(26px, 4vw, 46px);
+}
+
+.ygo-lobby__credit {
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ygo-lobby__heading,
+.ygo-free-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.ygo-lobby__heading {
+  margin-bottom: 14px;
+}
+
+.ygo-lobby h2,
+.ygo-lobby h3,
+.ygo-result dl,
+.ygo-result dd {
+  margin: 0;
+}
+
+.ygo-result__scores > div {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 2;
+  row-gap: 2px;
+}
+
+.ygo-lobby h2 { font-size: 23px; }
+.ygo-lobby h3 { font-size: 22px; }
+
+.ygo-lobby__heading p,
+.ygo-campaign-progress,
+.ygo-stage__body p,
+.ygo-free-actions span,
+.ygo-decks button span,
+.ygo-result__reason,
+.ygo-result dt {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.ygo-campaign-progress {
+  font-variant-numeric: tabular-nums;
+}
+
+.ygo-stages,
+.ygo-decks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ygo-stage,
+.ygo-result__panel {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background-color: #101d2c;
+}
+
+.ygo-stage {
+  display: flex;
+  flex-direction: column;
+}
+
+.ygo-stage.is-current {
+  border-color: #639991;
+}
+
+.ygo-stage__banner {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 100px;
+  padding: 15px 18px;
+  background: linear-gradient(120deg, #16334b, #1d4152);
+}
+
+.ygo-stage__art {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 0 22%;
+  background-position: 60% 23%;
+  background-size: cover;
+  mask-image: linear-gradient(90deg, transparent, #0009 50%, #000c);
+}
+
+.ygo-stage__order {
+  font-size: 12px;
+  color: #c9e4eb;
+}
+
+.ygo-stage__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 16px 18px;
+}
+
+.ygo-stage__objective strong {
+  color: #e8eef8;
+}
+
+.ygo-stage__body button,
+.ygo-start,
+.ygo-result button.is-primary {
+  border: 1px solid #60a99f;
+  border-radius: 7px;
+  padding: 9px 15px;
+  background: #9fe3d7;
+  color: #092b2c;
+  font-weight: 700;
+}
+
+.ygo-stage__body button {
+  margin-top: auto;
+}
+
+.ygo-stage:not(.is-current) button {
+  background: #172b37;
+  border-color: var(--line);
+  color: #c3d6e1;
+}
+
+.ygo-stage button:disabled {
+  color: #a9b9cb;
+  opacity: 1;
+  background: #172331;
+}
+
+.ygo-decks button {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  text-align: left;
+  padding: 13px 15px;
+}
+
+.ygo-decks button.is-on {
+  border-color: #74b6ac;
+  background: #193539;
+}
+
+.ygo-free-actions {
+  margin-top: 12px;
+}
+
+.ygo-free-actions strong {
+  margin-left: 8px;
+  color: #e8eef8;
 }
 
 .ygo-result {
   display: grid;
-  place-content: center;
+  align-content: center;
   justify-items: center;
+  padding: 16px;
+}
+
+.ygo-result__panel {
+  width: min(100%, 540px);
+  padding: clamp(20px, 5vw, 38px);
+}
+
+.ygo-result__mode {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.ygo-result h1 {
+  font-size: clamp(38px, 7vw, 58px);
+  margin: 10px 0;
+}
+
+.ygo-result .ygo-result__scores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
+  margin: 24px 0;
+  padding-block: 16px;
+  border-block: 1px solid var(--line);
+}
+
+.ygo-result dd {
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ygo-result dd small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (hover: hover) {
+  .ygo-lobby button:not(:disabled):hover,
+  .ygo-result button:hover {
+    border-color: #b8f3e8;
+  }
+}
+
+@media (max-width: 720px) {
+  .ygo-lobby__free-link { display: block; }
+  .ygo-stages { grid-template-columns: 1fr; }
+  .ygo-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ygo-stage__banner { min-height: 72px; }
+}
+
+@media (max-width: 440px) {
+  .ygo-decks { grid-template-columns: 1fr; }
+  .ygo-result__actions button { flex-grow: 1; }
+}
+
+@media (max-width: 360px) {
+  .ygo-lobby__masthead span { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -9,6 +9,10 @@ export function other(id: PlayerId): PlayerId {
   return id === 0 ? 1 : 0;
 }
 
+export function sideName(id: PlayerId): string {
+  return id === 0 ? "你" : "对手";
+}
+
 export function log(state: DuelState, line: string): void {
   state.log.push(line);
 }
@@ -73,6 +77,8 @@ export function dumpOverlays(player: PlayerState, card: CardInstance): void {
 export function sendToGy(player: PlayerState, card: CardInstance): void {
   dumpOverlays(player, card);
   card.face = "up";
+  card.atkBuff = 0;
+  card.protectedUntilEnd = false;
   card.equippedTo = undefined;
   player.gy.unshift(card);
 }
@@ -101,7 +107,7 @@ export function computedAtk(state: DuelState, card: CardInstance): number {
   let atk = (def.atk ?? 0) + card.atkBuff;
   const owner = state.players[card.owner];
   const monsters = occupiedMonsters(owner);
-  if (card.defId === "garen" && monsters.every((m) => getCardDef(m.defId).race === "Warrior")) {
+  if (card.defId === "garen" && monsters.every((m) => m.face === "up" && getCardDef(m.defId).race === "Warrior")) {
     atk += 400;
   }
   if (card.defId === "jinx" && monsters.length === 1) atk += 500;
@@ -121,7 +127,7 @@ export function computedAtk(state: DuelState, card: CardInstance): number {
 }
 
 export function computedDef(card: CardInstance): number {
-  return Math.max(0, (getCardDef(card.defId).def ?? 0) + card.atkBuff);
+  return getCardDef(card.defId).def ?? 0;
 }
 
 export function isMainPhase(state: DuelState): boolean {

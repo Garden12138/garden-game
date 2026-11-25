@@ -1,36 +1,24 @@
-import type { Action, DuelState } from "../engine/types";
+import type { CardInstance, DuelState } from "../engine/types";
 import { CardView } from "./CardView";
 
-export function HandDock({
-  state,
-  actions,
-  onAct,
-}: {
+export type BoardSelection = {
   state: DuelState;
-  actions: Action[];
-  onAct: (action: Action) => void;
-}) {
-  const human = state.players[0].controller === "human" ? 0 : 1;
-  const player = state.players[human];
+  selectedUid?: string;
+  available: Set<string>;
+  targets: Set<string>;
+  onSelect: (card: CardInstance) => void;
+};
+
+export function HandDock({ state, selectedUid, available, targets, onSelect }: BoardSelection) {
+  const hand = state.players[0].hand;
   return (
-    <div className="ygo-hand">
-      {player.hand.map((card) => (
-        <CardView
-          key={card.uid}
-          card={card}
-          state={state}
-          onClick={() => {
-            const summon = actions.find((action) => action.type === "normalSummon" && action.uid === card.uid);
-            const setM = actions.find((action) => action.type === "setMonster" && action.uid === card.uid);
-            const setS = actions.find((action) => action.type === "setSpellTrap" && action.uid === card.uid);
-            const activate = actions.find((action) => action.type === "activate" && action.uid === card.uid);
-            if (activate) onAct(activate);
-            else if (summon) onAct(summon);
-            else if (setS) onAct(setS);
-            else if (setM) onAct(setM);
-          }}
-        />
-      ))}
-    </div>
+    <section aria-label="我的手牌" className="rd-hand-zone">
+      <h2>我的手牌 <small>{hand.length}</small></h2>
+      <div className="rd-hand">
+        {hand.map((card) => <CardView key={card.uid} card={card} state={state} selected={card.uid === selectedUid}
+          available={available.has(card.uid)} target={targets.has(card.uid)} onSelect={onSelect} />)}
+        {!hand.length && <p className="rd-muted">手牌已空</p>}
+      </div>
+    </section>
   );
 }

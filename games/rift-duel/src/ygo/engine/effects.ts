@@ -1,14 +1,17 @@
 import { getCardDef } from "../data/cards";
+import { destroyMonster } from "./battle";
 import {
   detachFromZone,
   dumpOverlays,
   emptyZones,
   findOnField,
+  isExtraMonster,
   log,
   occupiedMonsters,
   other,
   removeFromHand,
   sendToGy,
+  sideName,
 } from "./helpers";
 import { placeMonster } from "./summon";
 import type { ChainLink, DuelState } from "./types";
@@ -33,13 +36,7 @@ export function applyResolve(state: DuelState, link: ChainLink): void {
     case "destroyTarget": {
       const target = findOnField(state, link.targets[0] ?? "");
       if (target?.zone === "monster") {
-        if (target.card.protectedUntilEnd) {
-          log(state, "屏障保护了那只怪兽");
-          break;
-        }
-        target.player.monsters[target.index] = null;
-        sendToGy(target.player, target.card);
-        log(state, `${def.name}：破坏 ${getCardDef(target.card.defId).name}`);
+        destroyMonster(state, target.card);
       }
       break;
     }
@@ -58,8 +55,11 @@ export function applyResolve(state: DuelState, link: ChainLink): void {
         target.player.monsters[target.index] = null;
         dumpOverlays(target.player, target.card);
         target.card.face = "up";
-        target.player.hand.push(target.card);
-        log(state, `${def.name}：回到手牌`);
+        target.card.atkBuff = 0;
+        target.card.protectedUntilEnd = false;
+        const backToExtra = isExtraMonster(getCardDef(target.card.defId).monsterType);
+        (backToExtra ? target.player.extra : target.player.hand).push(target.card);
+        log(state, `${def.name}：回到${backToExtra ? "额外卡组" : "手牌"}`);
       }
       break;
     }
@@ -90,9 +90,10 @@ export function applyResolve(state: DuelState, link: ChainLink): void {
     }
     case "specialSummonHand": {
       const player = state.players[link.controller];
-      const card = removeFromHand(player, link.targets[0] ?? "");
       const zone = emptyZones(player.monsters)[0];
-      if (card && zone !== undefined) {
+      if (zone === undefined) break;
+      const card = removeFromHand(player, link.targets[0] ?? "");
+      if (card) {
         placeMonster(state, player.id, card, zone, "atk", "up");
         log(state, `传送：特殊召唤 ${getCardDef(card.defId).name}`);
       }
@@ -142,22 +143,20 @@ function applyDetach(state: DuelState, link: ChainLink): void {
   }
   const target = findOnField(state, link.targets[0] ?? "");
   if (target?.zone === "monster") {
-    if (target.card.protectedUntilEnd) {
-      log(state, "屏障保护了那只怪兽");
-      return;
-    }
-    target.player.monsters[target.index] = null;
-    sendToGy(target.player, target.card);
-    log(state, `${def.name}：卸 1，破坏 ${getCardDef(target.card.defId).name}`);
+    destroyMonster(state, target.card);
   }
 }
 
 function applyFusion(state: DuelState, link: ChainLink): void {
   const player = state.players[link.controller];
   const fusion = player.extra.find((card) => card.defId === link.fusionId);
-  const zone = emptyZones(player.monsters)[0];
-  if (!fusion || !link.materials || zone === undefined) return;
-  for (const uid of link.materials) {
+  const materials = link.materials;
+  if (!fusion || !materials) return;
+  const available = [...player.hand, ...occupiedMonsters(player)];
+  if (!materials.every((uid) => available.some((card) => card.uid === uid))) return;
+  const hasSpace = emptyZones(player.monsters).length > 0 || player.monsters.some((card) => card && materials.includes(card.uid));
+  if (!hasSpace) return;
+  for (const uid of materials) {
     const inHand = removeFromHand(player, uid);
     if (inHand) {
       sendToGy(player, inHand);
@@ -170,8 +169,9 @@ function applyFusion(state: DuelState, link: ChainLink): void {
     }
   }
   player.extra = player.extra.filter((card) => card.uid !== fusion.uid);
+  const zone = emptyZones(player.monsters)[0]!;
   placeMonster(state, player.id, fusion, zone, "atk", "up");
-  log(state, `融合召唤 ${getCardDef(fusion.defId).name}`);
+  log(state, `${sideName(player.id)}融合召唤 ${getCardDef(fusion.defId).name}`);
 }
 
 export function consumeActivatedCard(state: DuelState, uid: string): void {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAIN_SIZE, START_HAND, START_LP } from "../../src/ygo/engine/createDuel";
+import { createDuel, MAIN_SIZE, START_HAND, START_LP } from "../../src/ygo/engine/createDuel";
 import { legalActions } from "../../src/ygo/engine/legal";
 import { act, duel, must } from "./helpers";
 
@@ -12,6 +12,30 @@ describe("createDuel", () => {
     expect(state.turnPlayer).toBe(0);
     expect(state.phase).toBe("main1");
     expect(state.log.some((line) => line.includes("跳过抽卡"))).toBe(true);
+  });
+
+  it("gives the opponent the opening turn and draws for the player on the next turn", () => {
+    let state = createDuel({ seed: 16844, p0DeckId: "piltover", p1DeckId: "shadow", firstPlayer: 1 });
+    expect(state.prompt.actor).toBe(1);
+    expect(state.players[1].hand).toHaveLength(5);
+    expect(state.log[0]).toContain("对手先攻");
+    for (let i = 0; i < 3; i++) state = act(state, { type: "nextPhase" });
+    expect(state.turnPlayer).toBe(0);
+    expect(state.players[0].hand).toHaveLength(6);
+    expect(state.log.at(-1)).toBe("你抽卡");
+  });
+
+  it("keeps the identity of a set card out of the public log", () => {
+    let state = duel();
+    state = act(state, must(state, (a) => a.type === "setMonster"));
+    expect(state.log.at(-1)).toBe("你盖放了 1 只怪兽");
+    state = act(state, { type: "nextPhase" });
+    state = act(state, { type: "nextPhase" });
+    state = act(state, { type: "nextPhase" });
+    const spell = state.players[1].hand[0]!;
+    spell.defId = "barrier";
+    state = act(state, must(state, (a) => a.type === "setSpellTrap" && a.uid === spell.uid));
+    expect(state.log.at(-1)).toBe("对手盖放了 1 张魔法或陷阱");
   });
 });
 

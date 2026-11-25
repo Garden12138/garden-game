@@ -7,6 +7,7 @@ import {
   occupiedMonsters,
   removeFromHand,
   sendToGy,
+  sideName,
   tributeRequired,
 } from "./helpers";
 import type { Action, CardInstance, DuelState, PlayerId } from "./types";
@@ -63,7 +64,7 @@ export function applySummon(state: DuelState, action: Extract<Action, { type: "n
   const set = action.type === "setMonster";
   placeMonster(state, player.id, card, action.zone, set ? "def" : "atk", set ? "down" : "up");
   state.normalSummonUsed = true;
-  log(state, `${set ? "盖放" : "通常召唤"} ${getCardDef(card.defId).name}`);
+  log(state, set ? `${sideName(player.id)}盖放了 1 只怪兽` : `${sideName(player.id)}通常召唤 ${getCardDef(card.defId).name}`);
   onSummon(state, card);
 }
 
