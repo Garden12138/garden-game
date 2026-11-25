@@ -1,8 +1,8 @@
 import { GAME_CHAMPIONS, getGameChampion } from "../data/champions";
 import { IDENTITY_NAMES } from "../data/copy";
-import { buildDeck, shuffleDeck } from "./deck";
+import { buildDeck, drawCards, shuffleDeck } from "./deck";
 import { beginTurn } from "./effects";
-import { shuffleInPlace } from "./rng";
+import { nextSeed, shuffleInPlace } from "./rng";
 import type {
   Controller,
   GameState,
@@ -85,6 +85,12 @@ export function createMatch(seedOrConfig: number | MatchConfig): GameState {
     const candidates = pool.splice(0, 3);
     return emptyPlayer(id, identities[id]!, candidates, config.controllers[id] ?? "ai");
   });
+  if (config.mode === "identity" && !players.some((seat) => seat.candidates.includes("Thresh"))) {
+    const roll = nextSeed(rngState);
+    rngState = roll.state;
+    const slot = Math.floor(roll.value * (n * 3));
+    players[Math.floor(slot / 3)]!.candidates[slot % 3] = "Thresh";
+  }
   const first =
     config.mode === "identity" ? players.find((item) => item.identity === "baron")! : players[0]!;
   const opening =
@@ -132,6 +138,9 @@ export function applyPick(state: GameState, playerId: PlayerId, championId: stri
       state.config.mode === "identity"
         ? state.players.find((item) => item.identity === "baron")!
         : state.players[0]!;
+    for (let offset = 0; offset < n; offset++) {
+      drawCards(state, (starter.id + offset) % n, state.config.openingHand ?? 0);
+    }
     return beginTurn(state, starter.id);
   }
   state.prompt = pickPrompt(nextPicker.id, nextPicker.candidates);

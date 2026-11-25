@@ -134,3 +134,19 @@ describe("duel and team modes", () => {
     expect(after.players[1]!.alive).toBe(false);
   });
 });
+
+it("resolves both deaths from a reflected lethal strike before ending a duel", () => {
+  const state = pickAll(createMatch({ mode: "duel", seatCount: 2, controllers: ["human", "human"], seed: 4 }));
+  for (const seat of state.players) {
+    seat.championId = "Garen";
+    seat.hp = 1;
+    seat.hand = [];
+  }
+  state.players[0]!.hand = [card({ id: "hit", kind: "strike" })];
+  state.players[1]!.equipment.armor = card({ id: "reflect", kind: "thornmail" });
+  const ask = reduce(state, { type: "playCard", player: 0, cardId: "hit", targetId: 1 });
+  const end = reduce(ask, { type: "respond", player: 1 });
+  expect(end.players.every((p) => !p.alive)).toBe(true);
+  expect(end.prompt).toMatchObject({ kind: "gameOver", message: "双方同尽" });
+  expect(end.winnerSeat).toBeUndefined();
+});

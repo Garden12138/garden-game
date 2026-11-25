@@ -1,28 +1,16 @@
 import type { Action, GameMode, GameState, PlayerId } from "../engine/types";
-import type { LobbySeat } from "./host";
+import type { LobbyView } from "./host";
 
-export interface LobbyPayload {
+export interface LobbyPayload extends LobbyView {
   type: "lobby";
-  room: string;
-  mode: GameMode;
-  seatCount: 2 | 4;
   lanHost: string;
-  seats: LobbySeat[];
 }
 
 export type NetMessage =
   | { type: "join"; name: string; room?: string; mode?: GameMode; host?: boolean }
-  | { type: "start"; seed?: number }
+  | { type: "start"; seed?: number; openingHand?: 0 | 2 }
   | { type: "action"; action: Action }
-  | {
-      type: "hello";
-      playerId: PlayerId;
-      room: string;
-      mode: GameMode;
-      seatCount: 2 | 4;
-      lanHost: string;
-      seats: LobbySeat[];
-    }
+  | (Omit<LobbyPayload, "type"> & { type: "hello"; playerId: PlayerId })
   | { type: "state"; state: GameState }
   | LobbyPayload
   | { type: "error"; message: string };
@@ -46,6 +34,7 @@ export function createGameSocket(
         seatCount: message.seatCount,
         lanHost: message.lanHost,
         seats: message.seats,
+        hostSeat: message.hostSeat,
       });
     }
     if (message.type === "state") handlers.onState?.(message.state);

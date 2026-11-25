@@ -1,7 +1,6 @@
 import { lazy, Suspense } from "react";
 import { getChampionById, getSkinByNum } from "../../data/champions";
-import type { GameCard } from "../engine/types";
-import { SpellCardFace } from "./SpellCardFace";
+import { getGameChampion } from "../data/champions";
 
 const CardViewer3D = lazy(() =>
   import("../../components/CardViewer3D").then((module) => ({ default: module.CardViewer3D })),
@@ -9,14 +8,13 @@ const CardViewer3D = lazy(() =>
 
 export function CastOverlay({
   championId,
-  card,
   onClose,
 }: {
-  championId?: string;
-  card?: GameCard;
+  championId: string;
   onClose: () => void;
 }) {
-  const champion = championId ? getChampionById(championId) : undefined;
+  const champion = getChampionById(championId);
+  const skill = getGameChampion(championId);
   const skin = champion ? getSkinByNum(champion, 0) : undefined;
   return (
     <div className="rift-cast" role="dialog" aria-label="卡牌聚焦">
@@ -27,9 +25,8 @@ export function CastOverlay({
         <Suspense fallback={<p>正在装裱卡片…</p>}>
           <CardViewer3D champion={champion} skin={skin} variant="cast" className="w-full" />
         </Suspense>
-      ) : card ? (
-        <SpellCardFace card={card} />
       ) : null}
+      {skill && <p className="rift-role-card"><strong>{skill.skillName}</strong> · {skill.skillText}</p>}
     </div>
   );
 }

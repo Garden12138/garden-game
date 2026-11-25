@@ -50,3 +50,11 @@ describe("full roster", () => {
     expect(next.players[actor]!.hp).toBe(4);
   });
 });
+
+it("offers Thresh exactly once per identity table", () => {
+  for (let seed = 0; seed < 20; seed++) {
+    const pool = createMatch(seed).players.flatMap((seat) => seat.candidates);
+    expect(pool.filter((id) => id === "Thresh")).toHaveLength(1);
+    expect(new Set(pool).size).toBe(12);
+  }
+});

@@ -3,8 +3,8 @@ import { isSfxMuted, playSfx, setSfxMuted, sfxFromLog } from "../audio/sfx";
 import { chooseAiAction } from "../ai/chooseAction";
 import { GAME_TITLE } from "../data/copy";
 import { createMatch } from "../engine/createMatch";
-import { legalActions, reduce } from "../engine/reduce";
-import type { Action, GameCard, GameMode, GameState, PlayerId } from "../engine/types";
+import { reduce } from "../engine/reduce";
+import type { Action, GameMode, GameState, PlayerId } from "../engine/types";
 import { createGameSocket, sendNet, type LobbyPayload } from "../net/client";
 import { CastOverlay } from "./CastOverlay";
 import { LobbyScreen } from "./LobbyScreen";
@@ -22,8 +22,8 @@ export function GameApp({
   const [state, setState] = useState<GameState | null>(initialState ?? null);
   const [mySeat, setMySeat] = useState<PlayerId>(0);
   const [online, setOnline] = useState(false);
-  const [pendingCardId, setPendingCardId] = useState<string | null>(null);
-  const [overlay, setOverlay] = useState<{ championId?: string; card?: GameCard } | null>(null);
+  const [openingHand, setOpeningHand] = useState<0 | 2>(initialState?.config.openingHand ?? 0);
+  const [overlay, setOverlay] = useState<string | null>(null);
   const [muted, setMuted] = useState(isSfxMuted);
   const [lanHint, setLanHint] = useState("");
   const [lobby, setLobby] = useState<Omit<LobbyPayload, "type"> | null>(null);
@@ -36,7 +36,8 @@ export function GameApp({
   }, []);
 
   useEffect(() => {
-    if (!state) {
+    if (!state || state.phase === "pick") {
+      logLen.current = state?.log.length ?? 0;
       winPlayed.current = false;
       return;
     }
@@ -56,7 +57,7 @@ export function GameApp({
         (state.winner === "baronSide" && me?.identity !== "baron" && me?.identity !== "vanguard") ||
         (state.winner === "invaders" && me?.identity !== "invader") ||
         (state.winner === "shadow" && me?.identity !== "shadow");
-      playSfx(lost ? "lose" : "win");
+      if (state.winner !== "duel" || state.winnerSeat !== undefined) playSfx(lost ? "lose" : "win");
       winPlayed.current = true;
     }
   }, [state, mySeat]);
@@ -78,14 +79,23 @@ export function GameApp({
 
   const connect = (url: string, host: boolean, mode: GameMode, name: string) => {
     setLanHint("");
+    socketRef.current?.close();
     const socket = createGameSocket(url, {
       onHello: (playerId, next) => {
         setMySeat(playerId);
         setLobby(next);
       },
       onLobby: (next) => setLobby(next),
-      onState: (next) => setState(next),
-      onError: (message) => setLanHint(message),
+      onState: (next) => {
+        if (next.phase === "pick") {
+          setOpeningHand(next.config.openingHand ?? 0);
+          setOverlay(null);
+        }
+        setState(next);
+      },
+      onError: (message) => {
+        setLanHint(message);
+      },
     });
     socket.addEventListener("open", () => {
       setOnline(true);
@@ -94,50 +104,36 @@ export function GameApp({
     socket.addEventListener("error", () => {
       setLanHint("无法连接主机。请先在开房电脑运行 npm run dev:lan。");
     });
+    socket.addEventListener("close", () => {
+      if (socketRef.current !== socket) return;
+      socketRef.current = null;
+      setOnline(false);
+      setLobby(null);
+      setState(null);
+      setOverlay(null);
+      setLanHint("已断开连接，请重新加入大厅。");
+    });
     socketRef.current = socket;
   };
 
   const dispatch = (action: Action) => {
     playSfx("ui");
-    setPendingCardId(null);
     const socket = socketRef.current;
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      sendNet(socket, { type: "action", action });
+    if (socket) {
+      if (socket.readyState === WebSocket.OPEN) sendNet(socket, { type: "action", action });
       return;
     }
     setState((current) => (current ? reduce(current, action) : current));
   };
 
-  const playCard = (card: GameCard) => {
-    if (!state || state.prompt.actor !== mySeat) return;
-    if (state.prompt.kind !== "playCard") {
-      setOverlay({ card });
-      dispatch({ type: "respond", player: mySeat, cardId: card.id });
-      return;
-    }
-    const matches = legalActions(state).filter(
-      (action) => action.type === "playCard" && action.cardId === card.id,
-    );
-    if (matches.length === 1) {
-      setOverlay({ card });
-      dispatch(matches[0]!);
-      return;
-    }
-    if (matches.length > 1) setPendingCardId(card.id);
-  };
-
-  const selectSeat = (id: PlayerId) => {
-    if (!state) return;
-    setOverlay({ championId: state.players[id]!.championId || undefined });
-    if (!pendingCardId) return;
-    const match = legalActions(state).find(
-      (action) =>
-        action.type === "playCard" && action.cardId === pendingCardId && action.targetId === id,
-    );
-    if (match) dispatch(match);
-  };
-
-  const startSolo = (mode: GameMode) => {
+  const startSolo = (mode: GameMode, name: string) => {
+    const previous = socketRef.current;
+    socketRef.current = null;
+    previous?.close();
+    setOnline(false);
+    setLobby(null);
+    setLanHint("");
+    setOverlay(null);
     const seatCount = mode === "duel" ? 2 : 4;
     setMySeat(0);
     setState(
@@ -145,11 +141,19 @@ export function GameApp({
         mode,
         seed: Date.now() >>> 0,
         seatCount,
+        openingHand: mode === "identity" ? openingHand : 0,
+        playerNames: [name.trim() || "召唤师"],
         controllers: Array.from({ length: seatCount }, (_, index) => (index === 0 ? "human" : "ai")),
       }),
     );
   };
 
+  const isHost = online && lobby?.hostSeat === mySeat;
+  const startRoom = () => {
+    if (socketRef.current) sendNet(socketRef.current, {
+      type: "start", openingHand: lobby?.mode === "identity" ? openingHand : 0,
+    });
+  };
   return (
     <div className="rift-shell">
       <header className="rift-header">
@@ -177,8 +181,10 @@ export function GameApp({
           lanHint={lanHint}
           lobby={lobby}
           mySeat={mySeat}
-          isHost={online && mySeat === 0}
-          onStart={() => sendNet(socketRef.current!, { type: "start" })}
+          isHost={isHost}
+          openingHand={openingHand}
+          onOpeningHand={setOpeningHand}
+          onStart={startRoom}
           onSolo={startSolo}
           onHost={(mode, name) => connect("ws://127.0.0.1:8788", true, mode, name)}
           onJoin={(host, name) =>
@@ -191,22 +197,23 @@ export function GameApp({
         <TableScreen
           state={state}
           mySeat={mySeat}
-          pendingCardId={pendingCardId}
-          onPlayCard={playCard}
           onAction={dispatch}
-          onSelectSeat={selectSeat}
+          onInspect={(id) => setOverlay(state.players[id]!.championId)}
         />
       )}
       {state?.phase === "gameOver" && (
         <ResultScreen
           state={state}
-          onReplay={onExit}
+          openingHand={openingHand}
+          onOpeningHand={setOpeningHand}
+          onReplay={online ? (isHost ? startRoom : undefined)
+            : () => startSolo(state.config.mode, state.config.playerNames?.[0] ?? "召唤师")}
         />
       )}
-      {overlay && (
+      {state && lanHint && <p role="status">{lanHint}</p>}
+      {overlay && state?.phase !== "gameOver" && (
         <CastOverlay
-          championId={overlay.championId}
-          card={overlay.card}
+          championId={overlay}
           onClose={() => setOverlay(null)}
         />
       )}

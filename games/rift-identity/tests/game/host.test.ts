@@ -34,3 +34,36 @@ describe("GameRoom", () => {
     expect(room.join("next", "后来")).toBe(1);
   });
 });
+
+it("keeps four friends seated through a rematch and switches the opening deal", () => {
+  const room = new GameRoom("rift", "identity");
+  for (let i = 0; i < 4; i++) room.join(String(i), `朋友 ${i}`);
+  room.start(4, 0);
+  expect(() => room.start(5, 2)).toThrow("本局尚未结束");
+  const pick = () => {
+    while (room.state?.phase === "pick") {
+      const actor = room.state.prompt.actor;
+      const view = room.view(String(actor));
+      expect(view.players[actor]!.identity).toBe(room.state.players[actor]!.identity);
+      room.apply(String(actor), { type: "pickChampion", player: actor, championId: view.players[actor]!.candidates[0]! });
+    }
+  };
+  pick();
+  expect(room.state!.players.map((p) => p.hand.length).sort()).toEqual([0, 0, 0, 2]);
+  room.state!.phase = "gameOver";
+  room.start(9, 2);
+  pick();
+  expect(room.state!.players.map((p) => p.hand.length).sort()).toEqual([2, 2, 2, 4]);
+  expect(room.state!.config.playerNames).toEqual(["朋友 0", "朋友 1", "朋友 2", "朋友 3"]);
+  expect(room.state!.turnCount).toBe(1);
+});
+
+it("lets AI take over a disconnected seat and hands hosting to the next friend", () => {
+  const room = new GameRoom("rift", "identity");
+  room.join("first", "甲");
+  room.join("second", "乙");
+  room.start(1);
+  room.leave("first");
+  expect(room.state!.players[0]!.controller).toBe("ai");
+  expect(room.lobbyView().hostSeat).toBe(1);
+});

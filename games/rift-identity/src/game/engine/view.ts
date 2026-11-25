@@ -7,6 +7,15 @@ function hiddenCard(card: GameCard): GameCard {
 
 export function viewFor(state: GameState, viewer: PlayerId): GameState {
   const view = cloneState(state);
+  if (state.phase !== "gameOver") {
+    view.config.seed = 0;
+    view.rngSeed = 0;
+    view.rngState = 0;
+  }
+  if (state.prompt.actor !== viewer) {
+    view.prompt.legalCardIds = [];
+    if (state.phase === "pick") view.prompt.message = "等待选将";
+  }
   view.deck = state.deck.map((card, index) => hiddenCard({ ...card, id: `deck-${index}` }));
   for (const seat of view.players) {
     const revealIdentity =
@@ -19,6 +28,7 @@ export function viewFor(state: GameState, viewer: PlayerId): GameState {
       seat.identity = "vanguard";
     }
     if (seat.id !== viewer) {
+      seat.candidates = [];
       seat.hand = seat.hand.map((card, index) => hiddenCard({ ...card, id: `hidden-${seat.id}-${index}` }));
     }
   }

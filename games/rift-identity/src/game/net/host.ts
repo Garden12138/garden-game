@@ -1,6 +1,7 @@
 import { chooseAiAction } from "../ai/chooseAction";
 import { createMatch } from "../engine/createMatch";
-import { legalActions, reduce } from "../engine/reduce";
+import { isLegalAction } from "../engine/legal";
+import { reduce } from "../engine/reduce";
 import { viewFor } from "../engine/view";
 import type { Action, Controller, GameMode, GameState, MatchConfig, PlayerId } from "../engine/types";
 
@@ -21,6 +22,7 @@ export interface LobbyView {
   mode: GameMode;
   seatCount: 2 | 4;
   seats: LobbySeat[];
+  hostSeat: PlayerId;
 }
 
 export class GameRoom {
@@ -52,10 +54,13 @@ export class GameRoom {
   }
 
   leave(id: string): boolean {
-    if (this.started) return false;
     const index = this.clients.findIndex((item) => item.id === id);
     if (index < 0) return false;
-    this.clients.splice(index, 1);
+    const [client] = this.clients.splice(index, 1);
+    if (this.state && client) {
+      this.state.players[client.seat]!.controller = "ai";
+      this.state.config.controllers[client.seat] = "ai";
+    }
     return true;
   }
 
@@ -67,7 +72,7 @@ export class GameRoom {
         ? { seat, name: human.name, kind: "human" }
         : { seat, name: "AI", kind: "ai" };
     });
-    return { room: this.id, mode: this.mode, seatCount, seats };
+    return { room: this.id, mode: this.mode, seatCount, seats, hostSeat: this.clients[0]?.seat ?? 0 };
   }
 
   config(): MatchConfig {
@@ -75,12 +80,18 @@ export class GameRoom {
     const controllers: Controller[] = Array.from({ length: n }, (_, index) =>
       this.clients.some((client) => client.seat === index) ? "human" : "ai",
     );
-    return { mode: this.mode, seed: Date.now() >>> 0, seatCount: n, controllers };
+    return {
+      mode: this.mode, seed: Date.now() >>> 0, seatCount: n, controllers,
+      playerNames: Array.from({ length: n }, (_, i) => this.clients.find((c) => c.seat === i)?.name ?? ""),
+    };
   }
 
-  start(seed?: number): GameState {
+  start(seed?: number, openingHand: 0 | 2 = this.state?.config.openingHand ?? 0): GameState {
+    if (this.state && this.state.phase !== "gameOver") throw new Error("本局尚未结束");
+    if (openingHand !== 0 && openingHand !== 2) throw new Error("请选择零张或两张起手牌");
     const config = this.config();
     if (seed !== undefined) config.seed = seed;
+    config.openingHand = openingHand;
     this.state = createMatch(config);
     this.started = true;
     return this.state;
@@ -90,8 +101,7 @@ export class GameRoom {
     if (!this.state) throw new Error("对局未开始");
     const client = this.clients.find((item) => item.id === clientId);
     if (!client || action.player !== client.seat) throw new Error("不能代替其他座位操作");
-    const legal = legalActions(this.state).some((item) => JSON.stringify(item) === JSON.stringify(action));
-    if (!legal) throw new Error("非法操作");
+    if (!isLegalAction(this.state, action)) throw new Error("非法操作");
     this.state = reduce(this.state, action);
     return this.state;
   }

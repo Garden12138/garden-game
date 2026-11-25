@@ -1,3 +1,4 @@
+import { CARD_NAMES } from "../data/copy";
 import { applyPick } from "./createMatch";
 import { distance } from "./distance";
 import {
@@ -17,6 +18,7 @@ import {
   respondDuel,
   respondDodge,
   respondHeal,
+  respondLantern,
   startStrike,
   startTrick,
   takeCardFromHand,
@@ -24,12 +26,8 @@ import {
 import { cloneState, log, player } from "./helpers";
 import { useSkill } from "./skills";
 import type { Action, GameState } from "./types";
-import { legalActions } from "./legal";
+import { isLegalAction, legalActions } from "./legal";
 import { seatName } from "./win";
-
-function isLegal(state: GameState, action: Action): boolean {
-  return legalActions(state).some((item) => JSON.stringify(item) === JSON.stringify(action));
-}
 
 export function reduce(state: GameState, action: Action): GameState {
   if (state.phase === "gameOver") return state;
@@ -37,7 +35,7 @@ export function reduce(state: GameState, action: Action): GameState {
   if (action.type === "pickChampion") {
     return applyPick(next, action.player, action.championId);
   }
-  if (!isLegal(next, action)) return state;
+  if (!isLegalAction(next, action)) return state;
 
   if (action.type === "endPlay") {
     return enterDiscard(next);
@@ -57,6 +55,8 @@ export function reduce(state: GameState, action: Action): GameState {
   }
   if (action.type === "respond") {
     switch (next.prompt.kind) {
+      case "respondLantern":
+        return respondLantern(next, action.player, action.cardId);
       case "respondDodge":
         return respondDodge(next, action.player, action.cardId);
       case "respondBarrier":
@@ -91,6 +91,7 @@ export function reduce(state: GameState, action: Action): GameState {
     if (isEquip(card.kind)) {
       takeCardFromHand(seat, card.id);
       installEquip(next, action.player, card);
+      log(next, `${seatName(next, action.player)} 装备了${CARD_NAMES[card.kind]}。`);
       return next;
     }
     if (cardCanBeStrike(next, action.player, card) && (card.kind === "strike" || card.kind === "dodge")) {

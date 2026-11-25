@@ -8,6 +8,8 @@ export interface MatchConfig {
   seed: number;
   seatCount: 2 | 4;
   controllers: Controller[];
+  openingHand?: 0 | 2;
+  playerNames?: string[];
 }
 export type Suit = "spade" | "heart" | "club" | "diamond";
 export type Phase =
@@ -84,6 +86,7 @@ export interface PlayerState {
   judged: GameCard[];
   skillUsedThisTurn: boolean;
   limitedUsed: boolean;
+  lanternUsed?: boolean;
   damagedThisTurn: boolean;
   cannotDodgeUntilTurnEnd: boolean;
   extraDodgeRequired: number;
@@ -97,6 +100,7 @@ export type PromptKind =
   | "pickChampion"
   | "playCard"
   | "discardToHp"
+  | "respondLantern"
   | "respondDodge"
   | "respondBarrier"
   | "respondDuelStrike"

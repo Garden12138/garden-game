@@ -9,6 +9,7 @@ function simulate(config: number | MatchConfig, label: string): void {
   let state = createMatch(config);
   for (let step = 0; step < 8000; step += 1) {
     if (state.phase === "gameOver" || state.turnCount >= 200) break;
+    expect(state.players[state.prompt.actor]!.alive, `${label} dead actor at ${state.prompt.kind}`).toBe(true);
     const options = legalActions(state);
     expect(options.length, `${label} step ${step} ${state.prompt.kind}`).toBeGreaterThan(0);
     const action = chooseAiAction(state);
@@ -111,4 +112,18 @@ describe("chooseAiAction", () => {
     const action = chooseAiAction(state);
     expect(action).toEqual({ type: "respond", player: 2, cardId: "h1" });
   });
+});
+
+it("protects the baron as shadow until the final duel, including with the lantern", () => {
+  const state = pickAll(createMatch(8));
+  const shadow = state.players.find((p) => p.identity === "shadow")!;
+  const baron = state.players.find((p) => p.identity === "baron")!;
+  shadow.hand = [card({ id: "save", kind: "heal" })];
+  state.prompt = { kind: "dyingHeal", actor: shadow.id, source: baron.id, legalCardIds: ["save"],
+    legalTargetIds: [], canCancel: true, message: "" };
+  expect(chooseAiAction(state)).toHaveProperty("cardId", "save");
+  state.prompt.kind = "respondLantern";
+  expect(chooseAiAction(state)).toHaveProperty("cardId", "save");
+  for (const seat of state.players) seat.alive = seat === shadow || seat === baron;
+  expect(chooseAiAction(state)).toEqual({ type: "respond", player: shadow.id });
 });

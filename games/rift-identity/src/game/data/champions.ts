@@ -42,7 +42,7 @@ const OVERRIDES: Record<string, GameChampionDef> = {
     skillId: "thresh-death-sentence",
     skillKind: "active",
     skillName: "死神宣判",
-    skillText: "出牌阶段限一次，将一名其他角色装备区的一张牌收入你的手牌。",
+    skillText: "出牌阶段限一次，将一名其他角色装备区的一张牌收入你的手牌。回合外，另一人将受到普攻伤害时，可弃一张手牌用灯笼挡下该次伤害。每次自己回合开始时恢复灯笼。",
   },
   Jinx: {
     championId: "Jinx",

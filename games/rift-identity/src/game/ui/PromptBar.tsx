@@ -1,66 +1,35 @@
-import { getChampionById } from "../../data/champions";
-import { getGameChampion } from "../data/champions";
-import { legalActions } from "../engine/legal";
+import type { ReactNode } from "react";
+import { CARD_NAMES } from "../data/copy";
+import { equipmentList } from "../engine/distance";
 import type { Action, GameState, PlayerId } from "../engine/types";
+import { seatName } from "../engine/win";
 
-export function PromptBar({
-  state,
-  mySeat,
-  pendingCardId,
-  onAction,
-}: {
+export function PromptBar({ state, mySeat, message, children, onAction }: {
   state: GameState;
   mySeat: PlayerId;
-  pendingCardId: string | null;
+  message?: string;
+  children: ReactNode;
   onAction: (action: Action) => void;
 }) {
-  const mine = state.prompt.actor === mySeat;
-  const actor = state.players[state.prompt.actor]!;
-  const actorName = getChampionById(actor.championId)?.name ?? `座位 ${actor.id}`;
-  const options = legalActions(state).filter((action) => {
-    if (!mine) return false;
-    return (
-      action.type === "endPlay" ||
-      action.type === "respond" ||
-      action.type === "useSkill" ||
-      action.type === "discard"
-    );
-  });
-  const cancel = options.find((action) => action.type === "respond" && !action.cardId);
-  const endPlay = options.find((action) => action.type === "endPlay");
-  const skills = options.filter((action) => action.type === "useSkill");
-  const discard = options.find((action) => action.type === "discard");
-  const def = getGameChampion(state.players[mySeat]!.championId);
-  const message = !mine
-    ? `等待 ${actorName}…`
-    : pendingCardId
-      ? "请选择目标"
-      : state.prompt.message;
+  const prompt = state.prompt;
+  const mine = prompt.actor === mySeat;
+  const equipment = prompt.kind === "chooseCardInArea" && prompt.source !== undefined
+    ? equipmentList(state, prompt.source) : [];
   return (
     <div className="rift-prompt">
-      <p>{message}</p>
-      <div className="rift-prompt__actions">
-        {skills.slice(0, 6).map((action, index) => (
-          <button key={index} type="button" onClick={() => onAction(action)}>
-            {def?.skillName ?? "发动技能"}
-          </button>
-        ))}
-        {discard && (
-          <button type="button" onClick={() => onAction(discard)}>
-            弃牌
-          </button>
-        )}
-        {cancel && (
-          <button type="button" onClick={() => onAction(cancel)}>
-            取消
-          </button>
-        )}
-        {endPlay && (
-          <button type="button" onClick={() => onAction(endPlay)}>
-            结束出牌
-          </button>
-        )}
-      </div>
+      <p aria-live="polite">{mine ? message || prompt.message : `等待 ${seatName(state, prompt.actor)}…`}</p>
+      {mine && <div className="rift-prompt__actions">
+        {children}
+        {prompt.kind === "chooseCardInArea" && prompt.legalCardIds.map((cardId) => {
+          const card = equipment.find((item) => item.id === cardId);
+          return <button key={cardId} onClick={() => onAction({ type: "respond", player: mySeat, cardId })}>
+            {card ? CARD_NAMES[card.kind] : "一张暗手牌"}
+          </button>;
+        })}
+        {prompt.canCancel && <button onClick={() => onAction({ type: "respond", player: mySeat })}>
+          {prompt.kind === "respondLantern" ? "保留灯笼" : "放弃响应"}
+        </button>}
+      </div>}
     </div>
   );
 }

@@ -1,5 +1,4 @@
-import type { CardKind } from "../engine/types";
-import { CARD_NAMES, SUIT_SYMBOL } from "../data/copy";
+import { CARD_NAMES, CARD_RULES, SUIT_SYMBOL } from "../data/copy";
 import type { GameCard } from "../engine/types";
 
 export function SpellCardFace({ card, compact = false }: { card: GameCard; compact?: boolean }) {
@@ -8,7 +7,8 @@ export function SpellCardFace({ card, compact = false }: { card: GameCard; compa
       <span className="spell-face__suit">
         {SUIT_SYMBOL[card.suit]} {card.rank}
       </span>
-      <strong>{CARD_NAMES[card.kind as CardKind]}</strong>
+      <strong>{CARD_NAMES[card.kind]}</strong>
+      <small>{CARD_RULES[card.kind]}</small>
     </div>
   );
 }

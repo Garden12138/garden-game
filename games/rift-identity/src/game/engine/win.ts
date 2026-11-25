@@ -1,3 +1,4 @@
+import { getChampionById } from "../../data/champions";
 import { IDENTITY_NAMES } from "../data/copy";
 import { getGameChampion, isKillDrawSkill } from "../data/champions";
 import { drawCards } from "./deck";
@@ -20,12 +21,13 @@ function endGame(state: GameState, winner: NonNullable<GameState["winner"]>, mes
 }
 
 export function checkWinner(state: GameState): GameState {
+  if (state.winner || state.stack.some((frame) => frame.kind === "dying")) return state;
   const living = alivePlayers(state);
   if (state.config.mode === "duel") {
     if (living.length === 1) {
-      return endGame(state, "duel", `${living[0]!.championId || `座位${living[0]!.id}`} 获胜`, living[0]!.id);
+      return endGame(state, "duel", `${seatName(state, living[0]!.id)} 获胜`, living[0]!.id);
     }
-    if (living.length === 0) return endGame(state, "duel", "双方同尽", 0);
+    if (living.length === 0) return endGame(state, "duel", "双方同尽");
     return state;
   }
   if (state.config.mode === "team") {
@@ -78,5 +80,8 @@ export function applyDeath(state: GameState, victimId: PlayerId, killerId?: Play
 }
 
 export function seatName(state: GameState, id: PlayerId): string {
-  return player(state, id).championId || `座位${id}`;
+  const championId = player(state, id).championId;
+  const name = getChampionById(championId)?.name ?? championId;
+  const nickname = state.config.playerNames?.[id];
+  return nickname ? `${nickname}（${name || `座位 ${id}`}）` : name || `座位 ${id}`;
 }

@@ -17,3 +17,15 @@ describe("viewFor", () => {
     expect(view.players[viewer]!.hand.length).toBe(state.players[viewer]!.hand.length);
   });
 });
+
+it("keeps the viewer's private role and withholds the deal and other players' options", () => {
+  const state = createMatch(46);
+  const id = state.players.find((seat) => seat.identity === "shadow")!.id;
+  const view = viewFor(state, id);
+  expect(view.players[id]!.identity).toBe("shadow");
+  expect(view.players[id]!.candidates).toHaveLength(3);
+  expect(view.players.filter((p) => p.id !== id).every((p) => p.candidates.length === 0)).toBe(true);
+  expect(view.prompt.message).toBe("等待选将");
+  expect(view.config.seed).toBe(0);
+  expect(state.config.seed).toBe(46);
+});

@@ -142,6 +142,7 @@ export function legalActions(state: GameState): Action[] {
   }
 
   const respondKinds = new Set([
+    "respondLantern",
     "respondDodge",
     "respondBarrier",
     "respondDuelStrike",
@@ -167,4 +168,16 @@ function discardKeepScore(card: GameCard): number {
   if (card.kind === "strike") return 2;
   if (isEquip(card.kind)) return 1;
   return 0;
+}
+
+export function isLegalAction(state: GameState, action: Action): boolean {
+  if (action.type === "discard") {
+    const seat = state.players[action.player];
+    return state.phase === "discard" && state.prompt.kind === "discardToHp"
+      && state.prompt.actor === action.player && !!seat && Array.isArray(action.cardIds)
+      && action.cardIds.length === seat.hand.length - seat.hp
+      && new Set(action.cardIds).size === action.cardIds.length
+      && action.cardIds.every((id) => seat.hand.some((card) => card.id === id));
+  }
+  return legalActions(state).some((item) => JSON.stringify(item) === JSON.stringify(action));
 }

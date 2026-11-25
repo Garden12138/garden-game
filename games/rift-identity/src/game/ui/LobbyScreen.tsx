@@ -1,3 +1,4 @@
+import { OpeningHandSelect } from "./OpeningHandSelect";
 import { useState } from "react";
 import type { GameMode } from "../engine/types";
 import type { LobbyPayload } from "../net/client";
@@ -12,8 +13,12 @@ export function LobbyScreen({
   lobby,
   mySeat,
   isHost,
+  openingHand,
+  onOpeningHand,
 }: {
-  onSolo: (mode: GameMode) => void;
+  onSolo: (mode: GameMode, name: string) => void;
+  openingHand: 0 | 2;
+  onOpeningHand: (value: 0 | 2) => void;
   onHost: (mode: GameMode, name: string) => void;
   onJoin: (host: string, name: string) => void;
   onStart?: () => void;
@@ -29,53 +34,58 @@ export function LobbyScreen({
     <section className="rift-lobby" aria-labelledby="lobby-heading">
       <h1 id="lobby-heading">峡谷身份战</h1>
       <p>单机或局域网开房。空位由 AI 补齐。</p>
-      <div className="rift-lobby__join">
-        <label>
-          召唤师名称
-          <input
-            name="name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            aria-label="召唤师名称"
-          />
-        </label>
-      </div>
-      <form
-        className="rift-lobby__join"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const data = new FormData(event.currentTarget);
-          onJoin(String(data.get("host") || "127.0.0.1:8788"), name);
-        }}
-      >
-        <label>
-          加入主机
-          <input name="host" defaultValue="127.0.0.1:8788" aria-label="主机地址" />
-        </label>
-        <button type="submit">加入</button>
-      </form>
-      <div className="rift-lobby__row">
-        <button type="button" onClick={() => onSolo("identity")}>
-          单机身份场
-        </button>
-        <button type="button" onClick={() => onSolo("duel")}>
-          单机 1v1
-        </button>
-        <button type="button" onClick={() => onSolo("team")}>
-          单机 2v2
-        </button>
-      </div>
-      <div className="rift-lobby__row">
-        <button type="button" onClick={() => onHost("identity", name)}>
-          开房：身份场
-        </button>
-        <button type="button" onClick={() => onHost("duel", name)}>
-          开房：1v1
-        </button>
-        <button type="button" onClick={() => onHost("team", name)}>
-          开房：2v2
-        </button>
-      </div>
+      {!lobby && (
+        <>
+          <div className="rift-lobby__join">
+            <label>
+              召唤师名称
+              <input
+                name="name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                aria-label="召唤师名称"
+              />
+            </label>
+          </div>
+          <form
+            className="rift-lobby__join"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget);
+              onJoin(String(data.get("host") || "127.0.0.1:8788"), name);
+            }}
+          >
+            <label>
+              加入主机
+              <input name="host" defaultValue="127.0.0.1:8788" aria-label="主机地址" />
+            </label>
+            <button type="submit">加入</button>
+          </form>
+          <OpeningHandSelect value={openingHand} onChange={onOpeningHand} />
+          <div className="rift-lobby__row">
+            <button type="button" onClick={() => onSolo("identity", name)}>
+              单机身份场
+            </button>
+            <button type="button" onClick={() => onSolo("duel", name)}>
+              单机 1v1
+            </button>
+            <button type="button" onClick={() => onSolo("team", name)}>
+              单机 2v2
+            </button>
+          </div>
+          <div className="rift-lobby__row">
+            <button type="button" onClick={() => onHost("identity", name)}>
+              开房：身份场
+            </button>
+            <button type="button" onClick={() => onHost("duel", name)}>
+              开房：1v1
+            </button>
+            <button type="button" onClick={() => onHost("team", name)}>
+              开房：2v2
+            </button>
+          </div>
+        </>
+      )}
       {lobby && (
         <div className="rift-lobby__room">
           <p>
@@ -100,6 +110,7 @@ export function LobbyScreen({
               </li>
             ))}
           </ul>
+          {isHost && lobby.mode === "identity" && <OpeningHandSelect value={openingHand} onChange={onOpeningHand} />}
           {isHost && onStart && (
             <button type="button" onClick={onStart}>
               开始对局

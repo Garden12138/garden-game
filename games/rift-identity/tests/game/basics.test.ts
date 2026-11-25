@@ -104,3 +104,16 @@ describe("strike dodge heal dying", () => {
     expect(next.winner).toBe("invaders");
   });
 });
+
+it("accepts any distinct discard selection from the player's hand", () => {
+  const started = pickAll(createMatch(11));
+  const actor = started.currentPlayer;
+  const seat = started.players[actor]!;
+  seat.hp = 2;
+  seat.hand = ["a", "b", "c", "d"].map((id) => card({ id, kind: "strike" }));
+  const ask = reduce(started, { type: "endPlay", player: actor });
+  expect(reduce(ask, { type: "discard", player: actor, cardIds: ["a", "a"] })).toBe(ask);
+  expect(reduce(ask, { type: "discard", player: actor, cardIds: ["a", "other"] })).toBe(ask);
+  const next = reduce(ask, { type: "discard", player: actor, cardIds: ["a", "c"] });
+  expect(next.players[actor]!.hand.map((c) => c.id)).toEqual(["b", "d"]);
+});

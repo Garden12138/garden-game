@@ -62,6 +62,7 @@ export function beginTurn(state: GameState, id: PlayerId): GameState {
   state.strikeUsedThisTurn = false;
   state.skipPlayPhase = false;
   seat.skillUsedThisTurn = false;
+  seat.lanternUsed = false;
   seat.damagedThisTurn = false;
   seat.cannotDodgeUntilTurnEnd = false;
   seat.extraDodgeRequired = 0;
@@ -157,21 +158,29 @@ export function dealDamage(
   if (!target.alive || amount <= 0) return state;
   target.hp -= amount;
   target.damagedThisTurn = true;
-  log(state, `${seatName(state, targetId)} 受到 ${amount} 点伤害。`);
+  const targetName = seatName(state, targetId);
+  log(state, sourceId === undefined ? `${targetName} 受到 ${amount} 点伤害。`
+    : `${seatName(state, sourceId)} 对 ${targetName} 造成 ${amount} 点伤害。`);
+  if (target.hp <= 0) queueDying(state, targetId, sourceId);
   if (fromStrike && sourceId !== undefined && target.equipment.armor?.kind === "thornmail") {
     const source = player(state, sourceId);
     if (source.alive && sourceId !== targetId) {
       source.hp -= 1;
       source.damagedThisTurn = true;
       log(state, `荆棘之甲对 ${seatName(state, sourceId)} 造成 1 点伤害。`);
-      if (source.hp <= 0) startDying(state, sourceId, targetId);
+      if (source.hp <= 0) queueDying(state, sourceId, targetId);
     }
   }
-  if (target.hp <= 0) startDying(state, targetId, sourceId);
-  return checkWinner(state);
+  resumeAfterStack(state);
+  return state;
 }
 
 export function startDying(state: GameState, victimId: PlayerId, killerId?: PlayerId): void {
+  queueDying(state, victimId, killerId);
+  resumeAfterStack(state);
+}
+
+function queueDying(state: GameState, victimId: PlayerId, killerId?: PlayerId): void {
   const victim = player(state, victimId);
   if (victim.hp > 0 || !victim.alive) return;
   const remaining: PlayerId[] = [];
@@ -186,7 +195,6 @@ export function startDying(state: GameState, victimId: PlayerId, killerId?: Play
     target: victimId,
     remaining,
   });
-  askDying(state);
 }
 
 function askDying(state: GameState): void {
@@ -201,7 +209,7 @@ function askDying(state: GameState): void {
   while (frame.remaining.length > 0) {
     const actor = frame.remaining[0]!;
     const heals = player(state, actor).hand.filter((card) => card.kind === "heal");
-    if (heals.length === 0) {
+    if (!player(state, actor).alive || heals.length === 0) {
       frame.remaining.shift();
       continue;
     }
@@ -238,9 +246,13 @@ export function respondHeal(state: GameState, actor: PlayerId, cardId?: string):
 }
 
 function resumeAfterStack(state: GameState): void {
-  if (state.winner) return;
+  if (checkWinner(state).winner) return;
   const frame = state.stack[state.stack.length - 1];
   if (!frame) {
+    if (!player(state, state.currentPlayer).alive) {
+      beginTurn(state, nextAlive(state, state.currentPlayer));
+      return;
+    }
     if (state.phase === "play") playPhasePrompt(state);
     else if (state.phase === "discard") enterDiscard(state);
     return;
@@ -278,11 +290,9 @@ export function startStrike(
     getGameChampion(sourceSeat.championId) &&
     isExecuteStrikeSkill(getGameChampion(sourceSeat.championId)!.skillId) &&
     targetSeat.hp <= 2;
-  if (darius || targetSeat.cannotDodgeUntilTurnEnd) {
-    log(state, `${seatName(state, target)} 无法闪避此次普攻。`);
-    return dealDamage(state, target, source, 1, true);
-  }
-  if (targetSeat.equipment.armor?.kind === "adaptiveHelm") {
+  log(state, `${seatName(state, source)} 对 ${seatName(state, target)} 使用普攻。`);
+  const cannotDodge = darius || targetSeat.cannotDodgeUntilTurnEnd;
+  if (!cannotDodge && targetSeat.equipment.armor?.kind === "adaptiveHelm") {
     const judged = judgeCard(state);
     if (judged && isRed(judged)) {
       log(state, `${seatName(state, target)} 自适应头盔判定为红色，视为闪避。`);
@@ -298,7 +308,39 @@ export function startStrike(
     extraDodgesNeeded: extraDodges,
     virtualStrike: virtual,
   });
-  askDodge(state);
+  if (cannotDodge) {
+    log(state, `${seatName(state, target)} 无法闪避此次普攻。`);
+    offerLantern(state);
+  } else {
+    askDodge(state);
+  }
+  return state;
+}
+
+function offerLantern(state: GameState): void {
+  const strike = state.stack[state.stack.length - 1]!;
+  const target = strike.target!;
+  const thresh = state.players.find((seat) => seat.championId === "Thresh" && seat.alive
+    && seat.id !== strike.source && seat.id !== target && !seat.lanternUsed && seat.hand.length > 0);
+  if (thresh) {
+    state.prompt = {
+      kind: "respondLantern", actor: thresh.id, source: target,
+      legalCardIds: thresh.hand.map((card) => card.id), legalTargetIds: [], canCancel: true,
+      message: `弃一张手牌，用灯笼替 ${seatName(state, target)} 挡下这次普攻？`,
+    };
+    return;
+  }
+  state.stack.pop();
+  dealDamage(state, target, strike.source, 1, true);
+}
+
+export function respondLantern(state: GameState, actor: PlayerId, cardId?: string): GameState {
+  const strike = state.stack.pop()!;
+  if (!cardId) return dealDamage(state, strike.target!, strike.source, 1, true);
+  discardFromHand(state, actor, cardId);
+  player(state, actor).lanternUsed = true;
+  log(state, `${seatName(state, actor)} 使用灯笼，替 ${seatName(state, strike.target!)} 挡下了 ${seatName(state, strike.source)} 的普攻。`);
+  resumeAfterStack(state);
   return state;
 }
 
@@ -306,12 +348,6 @@ function askDodge(state: GameState): void {
   const frame = state.stack[state.stack.length - 1];
   if (!frame || frame.kind !== "strike" || frame.target === undefined) return;
   const target = player(state, frame.target);
-  if (target.cannotDodgeUntilTurnEnd) {
-    state.stack.pop();
-    dealDamage(state, frame.target, frame.source, 1, true);
-    resumeAfterStack(state);
-    return;
-  }
   const dodges = target.hand.filter((card) => card.kind === "dodge");
   state.prompt = {
     kind: "respondDodge",
@@ -329,9 +365,7 @@ export function respondDodge(state: GameState, actor: PlayerId, cardId?: string)
   const frame = state.stack[state.stack.length - 1];
   if (!frame || frame.kind !== "strike" || state.prompt.actor !== actor) return state;
   if (!cardId) {
-    state.stack.pop();
-    dealDamage(state, frame.target!, frame.source, 1, true);
-    resumeAfterStack(state);
+    offerLantern(state);
     return state;
   }
   const card = discardFromHand(state, actor, cardId);
@@ -349,16 +383,16 @@ export function respondDodge(state: GameState, actor: PlayerId, cardId?: string)
 
 function barrierAskOrder(state: GameState, source: PlayerId): PlayerId[] {
   const order: PlayerId[] = [];
-  let cursor = nextAlive(state, source);
-  while (cursor !== source) {
-    order.push(cursor);
-    cursor = nextAlive(state, cursor);
+  for (let step = 1; step <= state.players.length; step++) {
+    const id = (source + step) % state.players.length;
+    if (player(state, id).alive) order.push(id);
   }
-  order.push(source);
   return order;
 }
 
 export function startTrick(state: GameState, source: PlayerId, card: GameCard, target?: PlayerId): GameState {
+  const dest = target === undefined ? "" : ` 对 ${seatName(state, target)}`;
+  log(state, `${seatName(state, source)}${dest} 使用${CARD_NAMES[card.kind]}。`);
   const remaining = barrierAskOrder(state, source);
   state.stack.push({
     kind: "trick",
@@ -499,10 +533,10 @@ export function chooseAreaCard(state: GameState, actor: PlayerId, cardId?: strin
   }
   if (pending.take) {
     player(state, pending.source).hand.push(taken);
-    log(state, `${seatName(state, pending.source)} 获得一张牌。`);
+    log(state, `${seatName(state, pending.source)} 从 ${seatName(state, pending.target)} 取得${cardId === "__hand__" ? "一张暗手牌" : CARD_NAMES[taken.kind]}。`);
   } else {
     state.discard.push(taken);
-    log(state, `${seatName(state, pending.source)} 弃置了 ${CARD_NAMES[taken.kind]}。`);
+    log(state, `${seatName(state, pending.source)} 弃置了 ${seatName(state, pending.target)} 的${CARD_NAMES[taken.kind]}。`);
   }
   resumeAfterStack(state);
   return state;
@@ -530,7 +564,6 @@ export function respondDuel(state: GameState, actor: PlayerId, cardId?: string):
   if (!cardId) {
     state.stack.pop();
     dealDamage(state, actor, actor === frame.source ? frame.target : frame.source, 1, false);
-    resumeAfterStack(state);
     return state;
   }
   const card = discardFromHand(state, actor, cardId);
@@ -539,10 +572,6 @@ export function respondDuel(state: GameState, actor: PlayerId, cardId?: string):
   frame.remaining = [nextActor];
   askDuel(state, frame);
   return state;
-}
-
-function hasDyingFrame(state: GameState): boolean {
-  return state.stack.some((frame) => frame.kind === "dying");
 }
 
 function askAoe(state: GameState, frame: EffectFrame): void {
@@ -576,14 +605,9 @@ export function respondAoe(state: GameState, actor: PlayerId, cardId?: string): 
     const card = discardFromHand(state, actor, cardId);
     const ok = card && (need === "strike" ? cardCanBeStrike(state, actor, card) : card.kind === "dodge");
     if (!ok) return state;
-  } else {
-    dealDamage(state, actor, frame.source, 1, false);
   }
   frame.remaining.shift();
-  if (hasDyingFrame(state)) {
-    askDying(state);
-    return state;
-  }
+  if (!cardId) return dealDamage(state, actor, frame.source, 1, false);
   askAoe(state, frame);
   return state;
 }
@@ -596,11 +620,10 @@ export function handleLuxRespond(state: GameState, actor: PlayerId, cardId?: str
     if (!card || card.suit !== pending.suit) return state;
     discardFromHand(state, actor, cardId);
     log(state, `${seatName(state, actor)} 弃置同花色牌，免伤。`);
-  } else {
-    dealDamage(state, actor, pending.source, 1, false);
   }
   state.pending = null;
-  if (!state.winner) resumeAfterStack(state);
+  if (!cardId) return dealDamage(state, actor, pending.source, 1, false);
+  resumeAfterStack(state);
   return state;
 }
 

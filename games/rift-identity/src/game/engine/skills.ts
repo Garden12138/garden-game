@@ -9,6 +9,7 @@ import {
   startDying,
   startStrike,
 } from "./effects";
+import { seatName } from "./win";
 import { log, player } from "./helpers";
 import type { GameState, PlayerId } from "./types";
 
@@ -31,13 +32,14 @@ export function useSkill(
       if (!discarded) return state;
       seat.skillUsedThisTurn = true;
       markStrikeUsed(state, playerId);
-      log(state, `${seat.championId} 发动魅惑。`);
+      log(state, `${seatName(state, playerId)} 发动魅惑。`);
       return startStrike(state, playerId, targetId, undefined, 2, true);
     }
     case "thresh-death-sentence": {
       if (targetId === undefined || targetId === playerId) return state;
       const eq = equipmentList(state, targetId);
       if (eq.length === 0) return state;
+      log(state, `${seatName(state, playerId)} 对 ${seatName(state, targetId)} 发动死神宣判。`);
       state.pending = { type: "equipOrHand", source: playerId, target: targetId, take: true };
       state.prompt = {
         kind: "chooseCardInArea",
@@ -57,7 +59,7 @@ export function useSkill(
       const shown = player(state, playerId).hand.find((card) => card.id === cardId);
       if (!shown) return state;
       seat.skillUsedThisTurn = true;
-      log(state, `${seat.championId} 展示 ${CARD_NAMES[shown.kind]}，发动终极闪光。`);
+      log(state, `${seatName(state, playerId)} 向 ${seatName(state, targetId)} 展示${CARD_NAMES[shown.kind]}，发动${def.skillName}。`);
       const matches = player(state, targetId).hand.filter((card) => card.suit === shown.suit);
       state.pending = { type: "luxDiscard", source: playerId, target: targetId, suit: shown.suit };
       state.prompt = {
@@ -80,7 +82,7 @@ export function useSkill(
       seat.limitedUsed = true;
       seat.skillUsedThisTurn = true;
       seat.unlimitedStrikeThisTurn = true;
-      log(state, `${seat.championId} 发动禁奥义。`);
+      log(state, `${seatName(state, playerId)} 发动禁奥义。`);
       if (seat.hp <= 0) startDying(state, playerId, playerId);
       else playPhasePrompt(state);
       return state;
@@ -89,7 +91,7 @@ export function useSkill(
       if (targetId === undefined || !inAttackRange(state, playerId, targetId)) return state;
       player(state, targetId).cannotDodgeUntilTurnEnd = true;
       seat.skillUsedThisTurn = true;
-      log(state, `${seat.championId} 对 ${player(state, targetId).championId} 发动日炎耀斑。`);
+      log(state, `${seatName(state, playerId)} 对 ${seatName(state, targetId)} 发动日炎耀斑。`);
       return state;
     }
     case "soraka-astral-infusion":
@@ -101,7 +103,7 @@ export function useSkill(
       if (!discarded) return state;
       recover(state, targetId, 1);
       seat.skillUsedThisTurn = true;
-      log(state, `${seat.championId} 发动星体恩典。`);
+      log(state, `${seatName(state, playerId)} 对 ${seatName(state, targetId)} 发动${def.skillName}，回复 1 点体力。`);
       return state;
     }
     default:

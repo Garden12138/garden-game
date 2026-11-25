@@ -28,7 +28,7 @@ export function Seat({
   const isTurn = state.prompt.actor === id && state.phase !== "gameOver";
   const showIdentity =
     state.config.mode === "identity" &&
-    (seat.identity === "baron" || !seat.alive || state.phase === "gameOver");
+    (id === mySeat || seat.identity === "baron" || !seat.alive || state.phase === "gameOver");
   const team = state.config.mode === "team" ? teamOf(id) : null;
   const teammate = team !== null && id !== mySeat && teamOf(id) === teamOf(mySeat);
   return (
@@ -36,7 +36,7 @@ export function Seat({
       type="button"
       className={`rift-seat rift-seat--${area}${selected ? " is-selected" : ""}${seat.alive ? "" : " is-dead"}${isTurn ? " is-turn" : ""}${team ? ` rift-seat--${team}` : ""}`}
       onClick={() => onSelect(id)}
-      aria-label={`座位 ${id} ${champion?.name || seat.championId || "未选将"}`}
+      aria-label={`座位 ${id} ${state.config.playerNames?.[id] || ""} ${champion?.name || seat.championId || "未选将"}`}
     >
       {art ? (
         <img src={art} alt="" className="rift-seat__art" />
@@ -44,6 +44,7 @@ export function Seat({
         <div className="rift-seat__art rift-seat__art--empty" />
       )}
       <div className="rift-seat__meta">
+        {state.config.playerNames?.[id] && <strong>{state.config.playerNames[id]}</strong>}
         <strong>{champion?.name ?? (seat.candidates[0] ? "选将中" : `座位 ${id}`)}</strong>
         <span>
           体力 {seat.hp}/{seat.maxHp} · 手牌 {seat.hand.length}
@@ -56,6 +57,7 @@ export function Seat({
         )}
         {showIdentity && <span className="rift-seat__role">{IDENTITY_NAMES[seat.identity]}</span>}
         {def && <span>{def.skillName}</span>}
+        {seat.championId === "Thresh" && <span>{seat.lanternUsed ? "灯笼已用" : "灯笼可用"}</span>}
         <span>
           {equipmentList(state, id)
             .map((card) => CARD_NAMES[card.kind])

@@ -21,7 +21,8 @@ async function startLanWsServer() {
   const sockets = new Map<string, WebSocket>();
   const lanHost = lanAddress();
   const wss = new WebSocketServer({ port: 8788 });
-  console.log(`[峡谷身份战] 局域网主机 ws://${lanHost}:8788`);
+  wss.once("listening", () => console.log(`[峡谷身份战] 局域网主机 ws://${lanHost}:8788`));
+  wss.on("error", (error) => console.error("[峡谷身份战] 联机服务", error.message));
 
   const lobbyPayload = (room: InstanceType<typeof GameRoom>) => ({
     type: "lobby" as const,
@@ -46,9 +47,15 @@ async function startLanWsServer() {
   };
 
   const runAi = (room: InstanceType<typeof GameRoom>) => {
-    let guard = 0;
-    while (room.tickAi() && guard < 48) guard += 1;
+    if (!room.clients.length || rooms.get(room.id) !== room) return;
+    for (let i = 0; i < 48; i++) {
+      if (!room.tickAi()) {
+        pushState(room);
+        return;
+      }
+    }
     pushState(room);
+    setImmediate(() => runAi(room));
   };
 
   wss.on("connection", (socket) => {
@@ -60,23 +67,31 @@ async function startLanWsServer() {
     socket.on("close", () => {
       sockets.delete(clientId);
       const room = rooms.get(roomId);
-      if (room?.leave(clientId)) pushLobby(room);
+      if (!room?.leave(clientId)) return;
+      if (room.clients.length === 0) rooms.delete(roomId);
+      else {
+        pushLobby(room);
+        if (room.state) runAi(room);
+      }
     });
     socket.on("message", (raw) => {
-      const message = JSON.parse(String(raw)) as {
-        type: string;
-        name?: string;
-        room?: string;
-        mode?: "identity" | "duel" | "team";
-        host?: boolean;
-        seed?: number;
-        action?: import("../src/game/engine/types").Action;
-      };
       try {
+        const message = JSON.parse(String(raw)) as {
+          type: string;
+          name?: string;
+          room?: string;
+          mode?: "identity" | "duel" | "team";
+          host?: boolean;
+          seed?: number;
+          openingHand?: 0 | 2;
+          action?: import("../src/game/engine/types").Action;
+        };
         if (message.type === "join") {
           roomId = message.room || "rift";
           let room = rooms.get(roomId);
-          if (message.host || !room) {
+          if (message.host && room) throw new Error("房间已存在，请加入已有房间");
+          if (!room) {
+            if (!message.host) throw new Error("房间不存在，请先由房主开房");
             room = new GameRoom(roomId, message.mode ?? "identity");
             rooms.set(roomId, room);
           }
@@ -88,7 +103,8 @@ async function startLanWsServer() {
         const room = rooms.get(roomId);
         if (!room) throw new Error("房间不存在");
         if (message.type === "start") {
-          room.start(message.seed);
+          if (room.clients[0]?.id !== clientId) throw new Error("请等待房主开始");
+          room.start(message.seed, message.openingHand);
           pushState(room);
           runAi(room);
           return;
@@ -109,11 +125,17 @@ async function startLanWsServer() {
 export function riftLanPlugin(): Plugin {
   return {
     name: "rift-lan",
-    async configureServer(server) {
-      const sockets = await startLanWsServer();
-      server.httpServer?.once("close", () => {
-        for (const socket of sockets.clients) socket.terminate();
-        sockets.close();
+    configureServer(server) {
+      const http = server.httpServer;
+      // Vite prepares its replacement server before closing the original listener.
+      http?.once("listening", () => {
+        const ready = startLanWsServer();
+        http.once("close", () => {
+          void ready.then((sockets) => {
+            for (const socket of sockets.clients) socket.terminate();
+            sockets.close();
+          });
+        });
       });
     },
   };

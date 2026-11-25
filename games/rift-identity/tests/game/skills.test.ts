@@ -178,3 +178,65 @@ describe("champion skills", () => {
     expect(next.players[actor]!.hand).toHaveLength(0);
   });
 });
+
+describe("灯笼与阵亡交接", () => {
+  function incomingStrike() {
+    const state = pickAll(createMatch(31));
+    const actor = forceChampion(state, "Garen");
+    const target = (actor + 1) % 4;
+    const thresh = (actor + 2) % 4;
+    for (const seat of state.players) {
+      seat.hand = [];
+      seat.equipment = {};
+      seat.championId = "Garen";
+    }
+    state.players[thresh]!.championId = "Thresh";
+    state.players[thresh]!.hand = [card({ id: "cost", kind: "barrier" })];
+    state.players[actor]!.hand = [card({ id: "s", kind: "strike" })];
+    const attacked = reduce(state, { type: "playCard", player: actor, cardId: "s", targetId: target });
+    const asked = reduce(attacked, { type: "respond", player: target });
+    return { state, asked, actor, target, thresh };
+  }
+
+  it("offers Thresh the unresolved hit, pays once, and publicly names the rescue", () => {
+    const { state, asked, actor, target, thresh } = incomingStrike();
+    expect(asked.prompt).toMatchObject({ kind: "respondLantern", actor: thresh, source: target });
+    const saved = reduce(asked, { type: "respond", player: thresh, cardId: "cost" });
+    expect(saved.players[target]!.hp).toBe(state.players[target]!.hp);
+    expect(saved.players[thresh]!.hand).toHaveLength(0);
+    expect(saved.log.at(-1)).toContain("使用灯笼");
+    expect(saved.prompt).toMatchObject({ kind: "playCard", actor });
+    saved.strikeUsedThisTurn = false;
+    saved.players[actor]!.hand = [card({ id: "again", kind: "strike" })];
+    saved.players[thresh]!.hand = [card({ id: "cost2", kind: "heal" })];
+    const hit = reduce(saved, { type: "playCard", player: actor, cardId: "again", targetId: target });
+    const after = reduce(hit, { type: "respond", player: target });
+    expect(after.players[target]!.hp).toBe(state.players[target]!.hp - 1);
+    expect(beginTurn(after, thresh).players[thresh]!.lanternUsed).toBe(false);
+  });
+
+  it("declining keeps the cost and resolves the hit once", () => {
+    const { state, asked, target, thresh } = incomingStrike();
+    const after = reduce(asked, { type: "respond", player: thresh });
+    expect(after.players[target]!.hp).toBe(state.players[target]!.hp - 1);
+    expect(after.players[thresh]!.hand).toHaveLength(1);
+    expect(after.players[thresh]!.lanternUsed).toBeFalsy();
+  });
+
+  it("hands off once when the active hero dies to reflected damage", () => {
+    const { state, actor, target } = incomingStrike();
+    const baron = (actor + 2) % 4;
+    state.players[baron]!.championId = "Garen";
+    state.players[baron]!.identity = "baron";
+    state.players[actor]!.identity = "vanguard";
+    state.players[target]!.identity = "invader";
+    state.players[(actor + 3) % 4]!.identity = "shadow";
+    state.players[actor]!.hp = 1;
+    state.players[target]!.equipment.armor = card({ id: "thorns", kind: "thornmail" });
+    const attacked = reduce(state, { type: "playCard", player: actor, cardId: "s", targetId: target });
+    const next = reduce(attacked, { type: "respond", player: target });
+    expect(next.players[actor]!.alive).toBe(false);
+    expect(next.turnCount).toBe(state.turnCount + 1);
+    expect(next.prompt).toMatchObject({ actor: target, kind: "playCard" });
+  });
+});
