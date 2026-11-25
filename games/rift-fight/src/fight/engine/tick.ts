@@ -1,4 +1,5 @@
 import { SHARED_NORMALS } from "../data/sharedNormals";
+import { YASUO_TORNADO } from "../data/fighters";
 import { getFighterDef } from "../data/roster";
 import { hurtbox, overlap, worldBox } from "./boxes";
 import { addMeter, findMove, isActiveFrame, justiceDamage, moveDuration } from "./combat";
@@ -35,12 +36,32 @@ function startMove(fighter: Fighter, move: MoveDef, pose: Fighter["pose"]): void
   fighter.poseFrame = 0;
   fighter.moveId = move.id;
   fighter.hitConnect = false;
+  fighter.lastContactFrame = -1;
+  fighter.activeProjectileId = null;
   fighter.invuln = move.invuln;
   fighter.armor = move.armor;
   fighter.vx += move.vx * fighter.facing;
   if (move.vy) {
     fighter.vy = move.vy;
     fighter.y = Math.max(fighter.y, 0.01);
+  }
+}
+
+function startSpecial(self: Fighter, foe: Fighter, selected: MoveDef): void {
+  let move = selected;
+  if (move.id === "steel" && self.yasuoStacks >= 2) {
+    move = YASUO_TORNADO;
+    self.yasuoStacks = 0;
+  }
+  addMeter(self, -move.meterCost);
+  startMove(self, move, move.meterCost ? "super" : "special");
+  if (move.id === "resonate" && foe.leeMarked > 0) {
+    const distance = Math.max(0, Math.abs(foe.x - self.x) - 55);
+    self.x += Math.sign(foe.x - self.x) * distance;
+    self.vx = 0;
+    foe.leeMarked = 0;
+  } else if (move.kind === "teleport" || move.kind === "dash") {
+    self.x += move.vx * self.facing;
   }
 }
 
@@ -87,7 +108,7 @@ function trySpecial(fighter: Fighter, input: InputBits, prev: InputBits, buffer:
 
 function tryThrow(self: Fighter, foe: Fighter, input: InputBits, prev: InputBits): MoveDef | null {
   const both =
-    (edgePressed(prev, input, "lp") && input.lk) || (edgePressed(prev, input, "lk") && input.lp) || (input.lp && input.lk && (edgePressed(prev, input, "lp") || edgePressed(prev, input, "lk")));
+    (edgePressed(prev, input, "lp") && input.lk) || (edgePressed(prev, input, "lk") && input.lp);
   if (!both || self.y > 1 || foe.y > 1) return null;
   if (Math.abs(self.x - foe.x) > 70) return null;
   return SHARED_NORMALS.find((move) => move.id === "throw") ?? null;
@@ -121,12 +142,13 @@ function applyHit(
   state: FightState,
   attacker: 0 | 1,
   defender: 0 | 1,
-  move: Pick<MoveDef, "damage" | "chip" | "hitstun" | "blockstun" | "height" | "knockup" | "knockdown" | "meterGain" | "id">,
+  move: Pick<MoveDef, "damage" | "chip" | "hitstun" | "blockstun" | "knockup" | "knockdown" | "meterGain" | "id" | "hitInterval">,
   blocked: boolean,
 ): void {
   const self = state.fighters[attacker];
   const foe = state.fighters[defender];
   if (foe.invuln > 0) return;
+  const continuingCombo = state.lastHitBy === attacker && (foe.hitstun > 0 || foe.crumple > 0);
   let damage = move.damage;
   if (move.id === "justice") damage = justiceDamage(damage, foe.health);
   if (foe.armor > 0 && !blocked) {
@@ -138,6 +160,7 @@ function applyHit(
     foe.blockstun = move.blockstun;
     foe.pose = "block";
     foe.poseFrame = 0;
+    foe.moveId = null;
     foe.vx = -foe.facing * 1.6;
     addMeter(self, Math.round(move.meterGain * 0.4));
     addMeter(foe, 6);
@@ -147,30 +170,27 @@ function applyHit(
   foe.health = Math.max(0, foe.health - damage);
   foe.hitstun = move.hitstun;
   foe.pose = move.knockup > 0 ? "hitstun" : move.knockdown ? "knockdown" : "hitstun";
-  if (move.id === "charm" || move.id === "bind") {
-    foe.crumple = 22;
-    foe.pose = "crumple";
-  }
   if (move.id === "box") foe.trapped = 40;
   foe.poseFrame = 0;
   foe.moveId = null;
-  foe.vx = -foe.facing * (3 + (move.knockup > 0 ? 1 : 0));
+  foe.armor = 0;
+  const pushback = move.hitInterval ? 0.6 : move.knockup > 0 ? 4 : 3;
+  foe.vx = -foe.facing * pushback;
   if (move.knockup > 0) {
     foe.vy = move.knockup;
     foe.y = Math.max(foe.y, 1);
   }
   if (move.knockdown) foe.knockdown = 28;
-  if (move.id === "sonic") foe.leeMarked = 90;
-  if (self.id === "Yasuo" && move.id === "steel") self.yasuoStacks = Math.min(3, self.yasuoStacks + 1);
+  if (self.id === "Yasuo" && move.id === "steel") self.yasuoStacks = Math.min(2, self.yasuoStacks + 1);
   addMeter(self, move.meterGain);
   addMeter(foe, 10);
   state.lastHitBy = attacker;
-  state.combo = state.lastHitBy === attacker ? state.combo + 1 : 1;
-  state.freeze = move.id.includes("soul") || move.meterGain >= 18 ? 4 : 2;
+  state.combo = continuingCombo ? state.combo + 1 : 1;
+  state.freeze = Math.max(state.freeze, move.id === "soul" || move.meterGain >= 18 ? 4 : 2);
 }
 
 function shouldBlock(foe: Fighter, input: InputBits, height: MoveDef["height"]): boolean {
-  if (foe.y > 1) return false;
+  if (foe.y > 1 || inBusyMove(foe) || foe.hitstun > 0 || foe.crumple > 0 || foe.knockdown > 0) return false;
   if (!holdingBack(input, foe.facing)) return false;
   if (height === "low" && !input.down) return false;
   if (height === "overhead" && input.down) return false;
@@ -178,13 +198,15 @@ function shouldBlock(foe: Fighter, input: InputBits, height: MoveDef["height"]):
 }
 
 function resolveMelee(state: FightState, inputs: [InputBits, InputBits]): void {
+  const contacts: { side: 0 | 1; move: MoveDef; blocked: boolean }[] = [];
   for (const side of [0, 1] as const) {
     const self = state.fighters[side];
     const foe = state.fighters[other(side)];
-    if (!self.moveId || self.hitConnect) continue;
+    if (!self.moveId || !inBusyMove(self) || foe.invuln > 0) continue;
     const move = findMove(self, self.moveId);
-    if (!move || !isActiveFrame(move, self.poseFrame)) continue;
-    const def = getFighterDef(self.id);
+    if (!move || move.projectile || !isActiveFrame(move, self.poseFrame)) continue;
+    if (self.hitConnect && (!move.hitInterval || self.poseFrame - self.lastContactFrame < move.hitInterval)) continue;
+    if (move.kind === "throw" && (foe.y > 1 || foe.knockdown > 0)) continue;
     const hit = worldBox(self.x, self.y, self.facing, move.hitbox);
     const hurt = hurtbox(
       foe.x,
@@ -195,8 +217,16 @@ function resolveMelee(state: FightState, inputs: [InputBits, InputBits]): void {
     );
     if (!overlap(hit, hurt)) continue;
     self.hitConnect = true;
-    applyHit(state, side, other(side), move, shouldBlock(foe, inputs[other(side)], move.height));
-    void def;
+    self.lastContactFrame = self.poseFrame;
+    contacts.push({ side, move, blocked: move.kind !== "throw" && shouldBlock(foe, inputs[other(side)], move.height) });
+  }
+  // Both fighters' active boxes are sampled before either hit can interrupt a move.
+  for (const { side, move, blocked } of contacts) {
+    applyHit(state, side, other(side), move, blocked);
+  }
+  if (contacts.length === 2) {
+    state.lastHitBy = null;
+    state.combo = 0;
   }
 }
 
@@ -206,9 +236,11 @@ function resolveProjectiles(state: FightState, inputs: [InputBits, InputBits]): 
     const foe = state.fighters[other(shot.owner)];
     const box = { x: shot.x - shot.w / 2, y: shot.y - shot.h / 2, w: shot.w, h: shot.h };
     const hurt = hurtbox(foe.x, foe.y, getFighterDef(foe.id).width, getFighterDef(foe.id).height, foe.pose === "crouch");
-    if (!overlap(box, hurt)) continue;
+    if (foe.invuln > 0 || !overlap(box, hurt)) continue;
     shot.hit = true;
     shot.life = Math.min(shot.life, 1);
+    const owner = state.fighters[shot.owner];
+    if (owner.activeProjectileId === shot.id && owner.moveId === shot.moveId) owner.hitConnect = true;
     const blocked = shouldBlock(foe, inputs[other(shot.owner)], shot.height);
     applyHit(
       state,
@@ -220,18 +252,20 @@ function resolveProjectiles(state: FightState, inputs: [InputBits, InputBits]): 
         chip: shot.chip,
         hitstun: shot.hitstun,
         blockstun: shot.blockstun,
-        height: shot.height,
-        knockup: 0,
+        knockup: shot.knockup,
         knockdown: shot.hook,
         meterGain: shot.meterGain,
       },
       blocked,
     );
-    if (shot.hook && !blocked) {
-      foe.x += (state.fighters[shot.owner].x - foe.x) * 0.45;
+    if (!blocked) {
+      if (shot.hook) foe.x += (owner.x - foe.x) * 0.45;
+      if (shot.mark) foe.leeMarked = 90;
+      if (shot.bind) {
+        foe.crumple = 22;
+        foe.pose = "crumple";
+      }
     }
-    if (shot.mark) foe.leeMarked = 90;
-    if (shot.bind) foe.crumple = 20;
   }
 }
 
@@ -239,7 +273,7 @@ function cancelWindow(self: Fighter, next: MoveDef): boolean {
   if (!self.moveId || !self.hitConnect) return false;
   const current = findMove(self, self.moveId);
   if (!current) return false;
-  if (next.motion === "236236") return current.cancelSuper || current.cancelSpecial;
+  if (next.motion === "236236") return current.id !== next.id && (current.cancelSuper || current.cancelSpecial);
   if (next.kind !== "normal") return current.cancelSpecial;
   return current.id === "5lp" && self.lpChain < 2 && next.id === "5lp";
 }
@@ -293,20 +327,12 @@ function controlFighter(state: FightState, side: 0 | 1, input: InputBits): void 
   if (inBusyMove(self) && self.moveId) {
     const move = findMove(self, self.moveId);
     if (move) {
-      if (self.poseFrame === move.startup && (move.kind === "projectile" || move.kind === "hook" || move.kind === "beam")) {
+      if (self.poseFrame + 1 === move.startup && move.projectile) {
         spawnProjectile(state, side, move);
-        if (move.id === "steel" && self.yasuoStacks >= 2 && move.projectile) {
-          spawnProjectile(state, side, {
-            ...move,
-            projectile: { ...move.projectile, vx: 9, life: 40, w: 48, h: 36 },
-          });
-          self.yasuoStacks = 0;
-        }
       }
       const special = trySpecial(self, input, prev, state.buffers[side]);
       if (special && cancelWindow(self, special)) {
-        if (special.meterCost) addMeter(self, -special.meterCost);
-        startMove(self, special, special.meterCost ? "super" : "special");
+        startSpecial(self, foe, special);
         return;
       }
       const chain = pickNormal(self, input, prev);
@@ -320,6 +346,7 @@ function controlFighter(state: FightState, side: 0 | 1, input: InputBits): void 
         self.pose = self.y > 1 ? "jump" : "idle";
         self.poseFrame = 0;
         self.moveId = null;
+        self.armor = 0;
         self.lpChain = 0;
       }
     }
@@ -328,14 +355,7 @@ function controlFighter(state: FightState, side: 0 | 1, input: InputBits): void 
 
   const special = trySpecial(self, input, prev, state.buffers[side]);
   if (special && (canAct(self) || self.pose === "jump")) {
-    if (special.meterCost) addMeter(self, -special.meterCost);
-    if (special.id === "resonate" && foe.leeMarked <= 0) {
-      /* still dash */
-    }
-    startMove(self, special, special.meterCost ? "super" : "special");
-    if (special.kind === "teleport" || special.kind === "dash") {
-      self.x += special.vx * self.facing;
-    }
+    startSpecial(self, foe, special);
     return;
   }
 

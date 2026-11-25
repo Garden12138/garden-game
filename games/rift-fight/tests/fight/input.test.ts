@@ -25,4 +25,10 @@ describe("格斗指令缓冲", () => {
     for (const dir of [2, 3, 6, 2, 3, 6]) buffer = pushBuffer(buffer, dir);
     expect(detectMotion(buffer)).toBe("236236");
   });
+
+  it("走近后以最后完成的方向动作出招", () => {
+    expect(detectMotion([6, 6, 2, 3, 6, 5])).toBe("236");
+    expect(detectMotion([2, 3, 6, 2, 3])).toBe("623");
+    expect(detectMotion([2, 3, 6, 2, 1, 4])).toBe("214");
+  });
 });

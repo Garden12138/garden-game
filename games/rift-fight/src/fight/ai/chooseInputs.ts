@@ -73,7 +73,6 @@ export function chooseAiInputs(state: FightState, _humanP2: InputBits): InputBit
     return state.aiQueue.shift() ?? hold({});
   }
 
-  const walk = foe.x < self.x ? hold({ left: true }) : hold({ right: true });
-  queue([walk, walk, walk]);
+  queue(Array<InputBits>(delay).fill(hold({ right: true })));
   return state.aiQueue.shift() ?? hold({});
 }

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { fighterArt } from "../data/art";
+import { SEAT_CONTROLS } from "../data/copy";
 import { EMPTY_INPUT, type FightState, type InputBits } from "../engine/types";
 import { tick } from "../engine/tick";
 import { drawMatch } from "../render/drawMatch";
 import type { ArtMap } from "../puppet/renderPuppet";
 import { FightHud } from "./FightHud";
+import { FighterGuide } from "./FighterGuide";
 
 const P1: Record<string, keyof InputBits> = {
   KeyA: "left",
@@ -60,7 +62,7 @@ export function MatchScreen({
       image.onload = () => {
         if (!cancelled) artRef.current.set(fighter.id, image);
       };
-      image.src = fighterArt(fighter.id).loading;
+      image.src = fighterArt(fighter.id).icon;
     }
     return () => {
       cancelled = true;
@@ -68,13 +70,22 @@ export function MatchScreen({
   }, [initial]);
 
   useEffect(() => {
+    const releaseKeys = () => {
+      inputsRef.current = [blank(), blank()];
+    };
     const down = (event: KeyboardEvent) => {
       if (event.code === "Escape") {
-        setPaused((value) => !value);
+        event.preventDefault();
+        if (!event.repeat) {
+          releaseKeys();
+          if (paused) canvasRef.current?.focus();
+          setPaused(!paused);
+        }
         return;
       }
+      if (paused || event.metaKey || event.ctrlKey || event.altKey) return;
       const p1 = P1[event.code];
-      const p2 = P2[event.code];
+      const p2 = initial.versus === "local" && P2[event.code];
       if (p1) {
         event.preventDefault();
         inputsRef.current[0][p1] = true;
@@ -92,11 +103,13 @@ export function MatchScreen({
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
+    window.addEventListener("blur", releaseKeys);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", releaseKeys);
     };
-  }, []);
+  }, [paused, initial.versus]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -137,17 +150,49 @@ export function MatchScreen({
 
   return (
     <div className="fight-match">
-      <FightHud state={hud} onPause={() => setPaused(true)} />
-      <canvas ref={canvasRef} className="fight-canvas" aria-label="格斗场地" />
+      <FightHud state={hud} paused={paused} onPause={() => {
+        inputsRef.current = [blank(), blank()];
+        setPaused(true);
+      }} />
+      <canvas ref={canvasRef} className="fight-canvas" aria-label="格斗场地" tabIndex={-1} />
       {paused && (
-        <div className="fight-pause">
-          <p>暂停</p>
-          <button type="button" onClick={() => setPaused(false)}>
-            继续
-          </button>
-          <button type="button" onClick={onSelect}>
-            返回选人
-          </button>
+        <div
+          className="fight-pause"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pause-title"
+          onKeyDown={(event) => {
+            if (event.key !== "Tab") return;
+            const buttons = event.currentTarget.querySelectorAll("button");
+            const first = buttons[0];
+            const last = buttons[buttons.length - 1];
+            const end = event.shiftKey ? first : last;
+            if (event.target === end) {
+              event.preventDefault();
+              (event.shiftKey ? last : first)?.focus();
+            }
+          }}
+        >
+          <h2 id="pause-title">暂停</h2>
+          <div className="fight-pause__guides">
+            {hud.fighters.map((fighter, index) => (
+              <FighterGuide key={index} id={fighter.id} seat={index === 0 ? "p1" : "p2"} versus={hud.versus} facing={fighter.facing} />
+            ))}
+          </div>
+          <div className="fight-pause__controls">
+            <p>P1 · {SEAT_CONTROLS.p1}</p>
+            {hud.versus === "local" && <p>P2 · {SEAT_CONTROLS.p2}</p>}
+            <p>按顺序输入招式，+ 表示同时按。按住后方向防御，近身同时按轻拳和轻脚可投技。</p>
+          </div>
+          <div className="fight-pause__actions">
+            <button type="button" autoFocus onClick={() => {
+              setPaused(false);
+              canvasRef.current?.focus();
+            }}>
+              继续
+            </button>
+            <button type="button" onClick={onSelect}>返回选人</button>
+          </div>
         </div>
       )}
     </div>

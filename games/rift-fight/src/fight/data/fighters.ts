@@ -120,6 +120,9 @@ const garen: FighterDef = {
       active: 18,
       recovery: 16,
       damage: 28,
+      hitInterval: 6,
+      chip: 4,
+      meterGain: 6,
       armor: 10,
       hitbox: { x: -30, y: 20, w: 140, h: 100 },
     }),
@@ -154,6 +157,19 @@ const garen: FighterDef = {
   ],
 };
 
+const steel = special({
+  id: "steel",
+  name: "斩钢闪",
+  motion: "236",
+  button: "P",
+  kind: "slash",
+  startup: 8,
+  active: 4,
+  recovery: 16,
+  damage: 70,
+  hitbox: { x: 16, y: 50, w: 100, h: 50 },
+});
+
 const yasuo: FighterDef = {
   id: "Yasuo",
   name: "亚索",
@@ -163,18 +179,7 @@ const yasuo: FighterDef = {
   width: 54,
   height: 174,
   specials: [
-    special({
-      id: "steel",
-      name: "斩钢闪",
-      motion: "236",
-      button: "P",
-      kind: "slash",
-      startup: 8,
-      active: 4,
-      recovery: 16,
-      damage: 70,
-      hitbox: { x: 16, y: 50, w: 100, h: 50 },
-    }),
+    steel,
     special({
       id: "dash",
       name: "踏前斩",
@@ -219,6 +224,15 @@ const yasuo: FighterDef = {
     }),
   ],
 };
+
+export const YASUO_TORNADO = special({
+  ...steel,
+  id: "tornado",
+  name: "斩钢闪·旋风",
+  kind: "projectile",
+  knockup: 10,
+  projectile: { vx: 9, vy: 0, life: 40, w: 48, h: 46 },
+});
 
 const lux: FighterDef = {
   id: "Lux",
@@ -406,7 +420,10 @@ const katarina: FighterDef = {
       startup: 6,
       active: 24,
       recovery: 28,
-      damage: 22,
+      damage: 40,
+      hitInterval: 4,
+      chip: 2,
+      meterGain: 3,
       meterCost: 100,
       hitbox: { x: -70, y: 10, w: 160, h: 130 },
     }),

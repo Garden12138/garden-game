@@ -6,6 +6,5 @@ export function fighterArt(id: FighterId) {
   return {
     icon: `${cdn}/16.13.1/img/champion/${id}.png`,
     splash: `${cdn}/img/champion/splash/${id}_0.jpg`,
-    loading: `${cdn}/img/champion/loading/${id}_0.jpg`,
   };
 }

@@ -1,8 +1,6 @@
-import { getFighterDef } from "../data/roster";
 import { EMPTY_INPUT, MAX_HEALTH, ROUND_FRAMES, type FightConfig, type FightState, type Fighter, type FighterId } from "./types";
 
 function makeFighter(id: FighterId, x: number, facing: 1 | -1): Fighter {
-  const def = getFighterDef(id);
   return {
     id,
     x,
@@ -16,11 +14,13 @@ function makeFighter(id: FighterId, x: number, facing: 1 | -1): Fighter {
     poseFrame: 0,
     moveId: null,
     hitConnect: false,
+    lastContactFrame: -1,
+    activeProjectileId: null,
     lpChain: 0,
     hitstun: 0,
     blockstun: 0,
     invuln: 0,
-    armor: def.id === "Garen" ? 0 : 0,
+    armor: 0,
     knockdown: 0,
     yasuoStacks: 0,
     leeMarked: 0,

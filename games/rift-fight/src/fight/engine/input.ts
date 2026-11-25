@@ -38,21 +38,35 @@ export function pushBuffer(buffer: number[], dir: number): number[] {
   return next;
 }
 
-function containsSeq(buffer: number[], seq: number[]): boolean {
-  let index = 0;
+const motions = [
+  ["236236", [2, 3, 6, 2, 3, 6]],
+  ["623", [6, 2, 3]],
+  ["236", [2, 3, 6]],
+  ["214", [2, 1, 4]],
+] as const;
+
+function lastCompletion(buffer: number[], sequence: readonly number[]): number {
+  let step = 0;
   for (const dir of buffer) {
-    if (dir === seq[index]) index += 1;
-    if (index === seq.length) return true;
+    if (dir !== sequence[step]) continue;
+    step += 1;
+    if (step === sequence.length) return buffer.lastIndexOf(dir);
   }
-  return false;
+  return -1;
 }
 
 export function detectMotion(buffer: number[]): "236236" | "623" | "236" | "214" | null {
-  if (containsSeq(buffer, [2, 3, 6, 2, 3, 6])) return "236236";
-  if (containsSeq(buffer, [6, 2, 3])) return "623";
-  if (containsSeq(buffer, [2, 3, 6])) return "236";
-  if (containsSeq(buffer, [2, 1, 4])) return "214";
-  return null;
+  let result: (typeof motions)[number][0] | null = null;
+  let latest = -1;
+  for (const [motion, sequence] of motions) {
+    const end = lastCompletion(buffer, sequence);
+    // A double quarter-circle and a single can finish on the same frame.
+    if (end > latest) {
+      result = motion;
+      latest = end;
+    }
+  }
+  return result;
 }
 
 export function holdingBack(input: InputBits, facing: 1 | -1): boolean {

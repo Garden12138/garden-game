@@ -6,11 +6,14 @@ export function spawnProjectile(state: FightState, owner: 0 | 1, move: MoveDef):
   if (!spec) return;
   const fighter = state.fighters[owner];
   const def = getFighterDef(fighter.id);
+  const id = state.nextProjectileId++;
+  fighter.activeProjectileId = id;
+  const beamOffset = spec.beam && spec.vx === 0 ? spec.w / 2 : 0;
   state.projectiles.push({
-    id: state.nextProjectileId++,
+    id,
     owner,
     moveId: move.id,
-    x: fighter.x + fighter.facing * (def.width / 2 + 20),
+    x: fighter.x + fighter.facing * (def.width / 2 + 20 + beamOffset),
     y: fighter.y + def.height * 0.62,
     vx: spec.vx * fighter.facing,
     vy: spec.vy,
@@ -22,8 +25,10 @@ export function spawnProjectile(state: FightState, owner: 0 | 1, move: MoveDef):
     hitstun: move.hitstun,
     blockstun: move.blockstun,
     meterGain: move.meterGain,
+    knockup: move.knockup,
     height: move.height,
     returning: Boolean(spec.returning),
+    returningLeg: false,
     delay: spec.delay ?? 0,
     hook: Boolean(spec.hook),
     beam: Boolean(spec.beam),
@@ -46,8 +51,11 @@ export function advanceProjectiles(state: FightState): void {
     shot.x += shot.vx;
     shot.y += shot.vy;
     shot.life -= 1;
-    if (shot.returning && shot.life === 28) shot.vx *= -1;
-    if (shot.life > 0 && shot.x > -40 && shot.x < 1440) next.push(shot);
+    if (shot.returning && shot.life === 28) {
+      shot.vx *= -1;
+      shot.returningLeg = true;
+    }
+    if (shot.life > 0 && shot.x + shot.w / 2 > -40 && shot.x - shot.w / 2 < 1440) next.push(shot);
   }
   state.projectiles = next;
 }

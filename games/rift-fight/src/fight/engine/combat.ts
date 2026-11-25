@@ -1,8 +1,10 @@
 import { SHARED_NORMALS } from "../data/sharedNormals";
+import { YASUO_TORNADO } from "../data/fighters";
 import { getFighterDef } from "../data/roster";
 import type { Fighter, MoveDef } from "./types";
 
 export function findMove(fighter: Fighter, moveId: string): MoveDef | undefined {
+  if (fighter.id === "Yasuo" && moveId === YASUO_TORNADO.id) return YASUO_TORNADO;
   return (
     SHARED_NORMALS.find((move) => move.id === moveId) ??
     getFighterDef(fighter.id).specials.find((move) => move.id === moveId)

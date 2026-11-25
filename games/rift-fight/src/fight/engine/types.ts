@@ -90,6 +90,7 @@ export type MoveDef = {
   kind: MoveKind;
   startup: number;
   active: number;
+  hitInterval?: number;
   recovery: number;
   damage: number;
   chip: number;
@@ -150,8 +151,10 @@ export type Projectile = {
   hitstun: number;
   blockstun: number;
   meterGain: number;
+  knockup: number;
   height: AttackHeight;
   returning: boolean;
+  returningLeg: boolean;
   delay: number;
   hook: boolean;
   beam: boolean;
@@ -174,6 +177,8 @@ export type Fighter = {
   poseFrame: number;
   moveId: string | null;
   hitConnect: boolean;
+  lastContactFrame: number;
+  activeProjectileId: number | null;
   lpChain: number;
   hitstun: number;
   blockstun: number;
